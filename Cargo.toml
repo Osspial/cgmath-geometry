@@ -1,0 +1,8 @@
+[package]
+name = "rect-cgmath"
+version = "0.1.0"
+authors = ["Osspial <osspial@gmail.com>"]
+
+[dependencies]
+cgmath = "^0.15"
+num-traits = "0.1"
