@@ -3,7 +3,7 @@ extern crate cgmath;
 use cgmath::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Rect<S> {
+pub struct DimsRect<S> {
     pub dims: Vector2<S>
 }
 
@@ -87,9 +87,9 @@ pub trait RectangleBLO: Rectangle {
     }
 }
 
-impl<S: BaseNum> RectangleTLO for Rect<S> {}
-impl<S: BaseNum> RectangleBLO for Rect<S> {}
-impl<S: BaseNum> Rectangle for Rect<S> {
+impl<S: BaseNum> RectangleTLO for DimsRect<S> {}
+impl<S: BaseNum> RectangleBLO for DimsRect<S> {}
+impl<S: BaseNum> Rectangle for DimsRect<S> {
     type Scalar = S;
 
     #[inline]
