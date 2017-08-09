@@ -2,6 +2,7 @@ extern crate cgmath;
 extern crate num_traits;
 
 use cgmath::*;
+use std::ops::{Add, Sub};
 use num_traits::Bounded;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -134,8 +135,7 @@ impl<S: BaseNum> Rectangle for DimsRect<S> {
     type Scalar = S;
 
     #[inline]
-    fn origin_corner(&self) -> Point2<S> {
-        Point2::new(S::zero(), S::zero())
+    fn origin_corner(&self) -> Point2<S> { Point2::new(S::zero(), S::zero())
     }
     #[inline]
     fn dims(&self) -> Vector2<S> {
@@ -199,5 +199,103 @@ impl<S: BaseNum> Rectangle for BoundRectBLO<S> {
     #[inline]
     fn dims(&self) -> Vector2<S> {
         self.tr.to_vec() - self.bl.to_vec()
+    }
+}
+
+impl<S: BaseNum> From<OffsetRect<S>> for BoundRectBLO<S> {
+    #[inline]
+    fn from(rect: OffsetRect<S>) -> BoundRectBLO<S> {
+        BoundRectBLO {
+            bl: rect.origin,
+            tr: rect.origin + rect.dims
+        }
+    }
+}
+
+impl<S: BaseNum> From<OffsetRect<S>> for BoundRectTLO<S> {
+    #[inline]
+    fn from(rect: OffsetRect<S>) -> BoundRectTLO<S> {
+        BoundRectTLO {
+            tl: rect.origin,
+            br: rect.origin + rect.dims
+        }
+    }
+}
+
+impl<S: BaseNum> From<BoundRectBLO<S>> for OffsetRect<S> {
+    #[inline]
+    fn from(rect: BoundRectBLO<S>) -> OffsetRect<S> {
+        OffsetRect {
+            origin: rect.bl,
+            dims: rect.tr.to_vec() - rect.bl.to_vec()
+        }
+    }
+}
+
+impl<S: BaseNum> From<BoundRectTLO<S>> for OffsetRect<S> {
+    #[inline]
+    fn from(rect: BoundRectTLO<S>) -> OffsetRect<S> {
+        OffsetRect {
+            origin: rect.tl,
+            dims: rect.br.to_vec() - rect.tl.to_vec()
+        }
+    }
+}
+
+impl<S: BaseNum> Add<Vector2<S>> for OffsetRect<S> {
+    type Output = Self;
+    #[inline]
+    fn add(mut self, rhs: Vector2<S>) -> OffsetRect<S> {
+        self.origin += rhs;
+        self
+    }
+}
+
+impl<S: BaseNum> Sub<Vector2<S>> for OffsetRect<S> {
+    type Output = Self;
+    #[inline]
+    fn sub(mut self, rhs: Vector2<S>) -> OffsetRect<S> {
+        self.origin -= rhs;
+        self
+    }
+}
+
+impl<S: BaseNum> Add<Vector2<S>> for BoundRectBLO<S> {
+    type Output = Self;
+    #[inline]
+    fn add(mut self, rhs: Vector2<S>) -> BoundRectBLO<S> {
+        self.bl += rhs;
+        self.tr += rhs;
+        self
+    }
+}
+
+impl<S: BaseNum> Add<Vector2<S>> for BoundRectTLO<S> {
+    type Output = Self;
+    #[inline]
+    fn add(mut self, rhs: Vector2<S>) -> BoundRectTLO<S> {
+        self.tl += rhs;
+        self.br += rhs;
+        self
+    }
+}
+
+impl<S: BaseNum> Sub<Vector2<S>> for BoundRectBLO<S> {
+    type Output = Self;
+    #[inline]
+    fn sub(mut self, rhs: Vector2<S>) -> BoundRectBLO<S> {
+        self.bl -= rhs;
+        self.tr -= rhs;
+        self
+    }
+}
+
+impl<S: BaseNum> Sub<Vector2<S>> for BoundRectTLO<S> {
+    type Output = Self;
+    #[inline]
+    fn sub(mut self, rhs: Vector2<S>) -> BoundRectTLO<S> {
+        self.tl -= rhs;
+        self.br -= rhs;
+        self
     }
 }
