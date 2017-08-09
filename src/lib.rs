@@ -202,6 +202,36 @@ impl<S: BaseNum> Rectangle for BoundRectBLO<S> {
     }
 }
 
+impl<S: BaseNum> From<DimsRect<S>> for OffsetRect<S> {
+    #[inline]
+    fn from(rect: DimsRect<S>) -> OffsetRect<S> {
+        OffsetRect {
+            origin: Point2::from_value(S::zero()),
+            dims: rect.dims
+        }
+    }
+}
+
+impl<S: BaseNum> From<DimsRect<S>> for BoundRectBLO<S> {
+    #[inline]
+    fn from(rect: DimsRect<S>) -> BoundRectBLO<S> {
+        BoundRectBLO {
+            bl: Point2::from_value(S::zero()),
+            tr: Point2::from_vec(rect.dims)
+        }
+    }
+}
+
+impl<S: BaseNum> From<DimsRect<S>> for BoundRectTLO<S> {
+    #[inline]
+    fn from(rect: DimsRect<S>) -> BoundRectTLO<S> {
+        BoundRectTLO {
+            tl: Point2::from_value(S::zero()),
+            br: Point2::from_vec(rect.dims)
+        }
+    }
+}
+
 impl<S: BaseNum> From<OffsetRect<S>> for BoundRectBLO<S> {
     #[inline]
     fn from(rect: OffsetRect<S>) -> BoundRectBLO<S> {
