@@ -89,6 +89,45 @@ pub trait RectangleBLO: Rectangle {
     }
 }
 
+impl<S> DimsRect<S> {
+    #[inline]
+    pub fn new(width: S, height: S) -> DimsRect<S> {
+        DimsRect {
+            dims: Vector2::new(width, height)
+        }
+    }
+}
+
+impl<S> OffsetRect<S> {
+    #[inline]
+    pub fn new(origin_x: S, origin_y: S, width: S, height: S) -> OffsetRect<S> {
+        OffsetRect {
+            origin: Point2{ x: origin_x, y: origin_y },
+            dims: Vector2::new(width, height)
+        }
+    }
+}
+
+impl<S> BoundRectTLO<S> {
+    #[inline]
+    pub fn new(top: S, left: S, bottom: S, right: S) -> BoundRectTLO<S> {
+        BoundRectTLO {
+            tl: Point2{ x: top, y: left },
+            br: Point2{ x: bottom, y: right }
+        }
+    }
+}
+
+impl<S> BoundRectBLO<S> {
+    #[inline]
+    pub fn new(bottom: S, left: S, top: S, right: S) -> BoundRectBLO<S> {
+        BoundRectBLO {
+            bl: Point2{ x: bottom, y: left },
+            tr: Point2{ x: top, y: right }
+        }
+    }
+}
+
 impl<S: BaseNum> RectangleTLO for DimsRect<S> {}
 impl<S: BaseNum> RectangleBLO for DimsRect<S> {}
 impl<S: BaseNum> Rectangle for DimsRect<S> {
