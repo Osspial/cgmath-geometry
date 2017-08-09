@@ -1,6 +1,8 @@
 extern crate cgmath;
+extern crate num_traits;
 
 use cgmath::*;
+use num_traits::Bounded;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct DimsRect<S> {
@@ -99,6 +101,22 @@ impl<S: BaseNum> Rectangle for DimsRect<S> {
     #[inline]
     fn dims(&self) -> Vector2<S> {
         self.dims
+    }
+}
+
+impl<S: Bounded> Bounded for DimsRect<S> {
+    #[inline]
+    fn min_value() -> DimsRect<S> {
+        DimsRect {
+            dims: Vector2::min_value()
+        }
+    }
+
+    #[inline]
+    fn max_value() -> DimsRect<S> {
+        DimsRect {
+            dims: Vector2::max_value()
+        }
     }
 }
 

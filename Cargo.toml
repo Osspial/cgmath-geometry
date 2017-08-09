@@ -4,4 +4,5 @@ version = "0.1.0"
 authors = ["Osspial <osspial@gmail.com>"]
 
 [dependencies]
-cgmath = "^0.15"
+cgmath = { git = "https://github.com/Osspial/cgmath.git" }
+num-traits = "0.1"
