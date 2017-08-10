@@ -3,7 +3,7 @@ extern crate num_traits;
 
 use cgmath::*;
 use std::ops::{Add, Sub};
-use num_traits::Bounded;
+use num_traits::{Bounded, NumCast, ToPrimitive};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct DimsRect<S> {
@@ -108,6 +108,16 @@ impl<S> DimsRect<S> {
             dims: Vector2::new(width, height)
         }
     }
+
+    #[inline]
+    pub fn cast<T>(&self) -> Option<DimsRect<T>>
+        where T: NumCast,
+              S: ToPrimitive + Copy
+    {
+        T::from(self.dims.x)
+            .and_then(|x| T::from(self.dims.y).map(|y| Vector2::new(x, y)))
+            .map(|dims| DimsRect{ dims })
+    }
 }
 
 impl<S> OffsetRect<S> {
@@ -117,6 +127,18 @@ impl<S> OffsetRect<S> {
             origin: Point2{ x: origin_x, y: origin_y },
             dims: Vector2::new(width, height)
         }
+    }
+
+    #[inline]
+    pub fn cast<T>(&self) -> Option<OffsetRect<T>>
+        where T: NumCast,
+              S: ToPrimitive + Copy
+    {
+        T::from(self.origin.x)
+            .and_then(|x| T::from(self.origin.y).map(|y| Point2{ x, y }))
+            .and_then(|origin| T::from(self.dims.x).map(|x| (origin, x)))
+            .and_then(|(origin, x)| T::from(self.dims.y).map(|y| (origin, Vector2{ x, y })))
+            .map(|(origin, dims)| OffsetRect{ origin, dims })
     }
 }
 
@@ -128,6 +150,18 @@ impl<S> BoundRectTLO<S> {
             br: Point2{ x: bottom, y: right }
         }
     }
+
+    #[inline]
+    pub fn cast<T>(&self) -> Option<BoundRectTLO<T>>
+        where T: NumCast,
+              S: ToPrimitive + Copy
+    {
+        T::from(self.tl.x)
+            .and_then(|x| T::from(self.tl.y).map(|y| Point2{ x, y }))
+            .and_then(|tl| T::from(self.br.x).map(|x| (tl, x)))
+            .and_then(|(tl, x)| T::from(self.br.y).map(|y| (tl, Point2{ x, y })))
+            .map(|(tl, br)| BoundRectTLO{ tl, br })
+    }
 }
 
 impl<S> BoundRectBLO<S> {
@@ -137,6 +171,18 @@ impl<S> BoundRectBLO<S> {
             bl: Point2{ x: bottom, y: left },
             tr: Point2{ x: top, y: right }
         }
+    }
+
+    #[inline]
+    pub fn cast<T>(&self) -> Option<BoundRectBLO<T>>
+        where T: NumCast,
+              S: ToPrimitive + Copy
+    {
+        T::from(self.bl.x)
+            .and_then(|x| T::from(self.bl.y).map(|y| Point2{ x, y }))
+            .and_then(|bl| T::from(self.tr.x).map(|x| (bl, x)))
+            .and_then(|(bl, x)| T::from(self.tr.y).map(|y| (bl, Point2{ x, y })))
+            .map(|(bl, tr)| BoundRectBLO{ bl, tr })
     }
 }
 
