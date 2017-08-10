@@ -17,15 +17,9 @@ pub struct OffsetRect<S> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct BoundRectTLO<S> {
-    pub tl: Point2<S>,
-    pub br: Point2<S>
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct BoundRectBLO<S> {
-    pub bl: Point2<S>,
-    pub tr: Point2<S>
+pub struct BoundRect<S> {
+    pub min: Point2<S>,
+    pub max: Point2<S>
 }
 
 pub trait Rectangle {
@@ -52,52 +46,6 @@ pub trait Rectangle {
     #[inline]
     fn height(&self) -> Self::Scalar {
         self.dims().y
-    }
-}
-
-pub trait RectangleTLO: Rectangle {
-    #[inline]
-    fn top_left_tlo(&self) -> Point2<Self::Scalar> {
-        self.origin_corner()
-    }
-    #[inline]
-    fn top_right_tlo(&self) -> Point2<Self::Scalar> {
-        let mut tr = self.origin_corner();
-        tr.x += self.width();
-        tr
-    }
-    #[inline]
-    fn bottom_left_tlo(&self) -> Point2<Self::Scalar> {
-        let mut bl = self.origin_corner();
-        bl.y += self.height();
-        bl
-    }
-    #[inline]
-    fn bottom_right_tlo(&self) -> Point2<Self::Scalar> {
-        self.origin_corner() + self.dims()
-    }
-}
-
-pub trait RectangleBLO: Rectangle {
-    #[inline]
-    fn top_left_blo(&self) -> Point2<Self::Scalar> {
-        let mut tl = self.origin_corner();
-        tl.y += self.height();
-        tl
-    }
-    #[inline]
-    fn top_right_blo(&self) -> Point2<Self::Scalar> {
-        self.origin_corner() + self.dims()
-    }
-    #[inline]
-    fn bottom_left_blo(&self) -> Point2<Self::Scalar> {
-        self.origin_corner()
-    }
-    #[inline]
-    fn bottom_right_blo(&self) -> Point2<Self::Scalar> {
-        let mut br = self.origin_corner();
-        br.x += self.width();
-        br
     }
 }
 
@@ -142,52 +90,28 @@ impl<S> OffsetRect<S> {
     }
 }
 
-impl<S> BoundRectTLO<S> {
+impl<S> BoundRect<S> {
     #[inline]
-    pub fn new(top: S, left: S, bottom: S, right: S) -> BoundRectTLO<S> {
-        BoundRectTLO {
-            tl: Point2{ x: top, y: left },
-            br: Point2{ x: bottom, y: right }
+    pub fn new(min_x: S, min_y: S, max_x: S, max_y: S) -> BoundRect<S> {
+        BoundRect {
+            min: Point2{ x: min_x, y: min_y },
+            max: Point2{ x: max_x, y: max_y }
         }
     }
 
     #[inline]
-    pub fn cast<T>(&self) -> Option<BoundRectTLO<T>>
+    pub fn cast<T>(&self) -> Option<BoundRect<T>>
         where T: NumCast,
               S: ToPrimitive + Copy
     {
-        T::from(self.tl.x)
-            .and_then(|x| T::from(self.tl.y).map(|y| Point2{ x, y }))
-            .and_then(|tl| T::from(self.br.x).map(|x| (tl, x)))
-            .and_then(|(tl, x)| T::from(self.br.y).map(|y| (tl, Point2{ x, y })))
-            .map(|(tl, br)| BoundRectTLO{ tl, br })
+        T::from(self.min.x)
+            .and_then(|x| T::from(self.min.y).map(|y| Point2{ x, y }))
+            .and_then(|min| T::from(self.max.x).map(|x| (min, x)))
+            .and_then(|(min, x)| T::from(self.max.y).map(|y| (min, Point2{ x, y })))
+            .map(|(min, max)| BoundRect{ min, max })
     }
 }
 
-impl<S> BoundRectBLO<S> {
-    #[inline]
-    pub fn new(bottom: S, left: S, top: S, right: S) -> BoundRectBLO<S> {
-        BoundRectBLO {
-            bl: Point2{ x: bottom, y: left },
-            tr: Point2{ x: top, y: right }
-        }
-    }
-
-    #[inline]
-    pub fn cast<T>(&self) -> Option<BoundRectBLO<T>>
-        where T: NumCast,
-              S: ToPrimitive + Copy
-    {
-        T::from(self.bl.x)
-            .and_then(|x| T::from(self.bl.y).map(|y| Point2{ x, y }))
-            .and_then(|bl| T::from(self.tr.x).map(|x| (bl, x)))
-            .and_then(|(bl, x)| T::from(self.tr.y).map(|y| (bl, Point2{ x, y })))
-            .map(|(bl, tr)| BoundRectBLO{ bl, tr })
-    }
-}
-
-impl<S: BaseNum> RectangleTLO for DimsRect<S> {}
-impl<S: BaseNum> RectangleBLO for DimsRect<S> {}
 impl<S: BaseNum> Rectangle for DimsRect<S> {
     type Scalar = S;
 
@@ -216,8 +140,6 @@ impl<S: Bounded> Bounded for DimsRect<S> {
     }
 }
 
-impl<S: BaseNum> RectangleTLO for OffsetRect<S> {}
-impl<S: BaseNum> RectangleBLO for OffsetRect<S> {}
 impl<S: BaseNum> Rectangle for OffsetRect<S> {
     type Scalar = S;
 
@@ -231,31 +153,16 @@ impl<S: BaseNum> Rectangle for OffsetRect<S> {
     }
 }
 
-impl<S: BaseNum> RectangleTLO for BoundRectTLO<S> {}
-impl<S: BaseNum> Rectangle for BoundRectTLO<S> {
+impl<S: BaseNum> Rectangle for BoundRect<S> {
     type Scalar = S;
 
     #[inline]
     fn origin_corner(&self) -> Point2<S> {
-        self.tl
+        self.min
     }
     #[inline]
     fn dims(&self) -> Vector2<S> {
-        self.br.to_vec() - self.tl.to_vec()
-    }
-}
-
-impl<S: BaseNum> RectangleBLO for BoundRectBLO<S> {}
-impl<S: BaseNum> Rectangle for BoundRectBLO<S> {
-    type Scalar = S;
-
-    #[inline]
-    fn origin_corner(&self) -> Point2<S> {
-        self.bl
-    }
-    #[inline]
-    fn dims(&self) -> Vector2<S> {
-        self.tr.to_vec() - self.bl.to_vec()
+        self.max.to_vec() - self.min.to_vec()
     }
 }
 
@@ -269,62 +176,32 @@ impl<S: BaseNum> From<DimsRect<S>> for OffsetRect<S> {
     }
 }
 
-impl<S: BaseNum> From<DimsRect<S>> for BoundRectBLO<S> {
+impl<S: BaseNum> From<DimsRect<S>> for BoundRect<S> {
     #[inline]
-    fn from(rect: DimsRect<S>) -> BoundRectBLO<S> {
-        BoundRectBLO {
-            bl: Point2::from_value(S::zero()),
-            tr: Point2::from_vec(rect.dims)
+    fn from(rect: DimsRect<S>) -> BoundRect<S> {
+        BoundRect {
+            min: Point2::from_value(S::zero()),
+            max: Point2::from_vec(rect.dims)
         }
     }
 }
 
-impl<S: BaseNum> From<DimsRect<S>> for BoundRectTLO<S> {
+impl<S: BaseNum> From<OffsetRect<S>> for BoundRect<S> {
     #[inline]
-    fn from(rect: DimsRect<S>) -> BoundRectTLO<S> {
-        BoundRectTLO {
-            tl: Point2::from_value(S::zero()),
-            br: Point2::from_vec(rect.dims)
+    fn from(rect: OffsetRect<S>) -> BoundRect<S> {
+        BoundRect {
+            min: rect.origin,
+            max: rect.origin + rect.dims
         }
     }
 }
 
-impl<S: BaseNum> From<OffsetRect<S>> for BoundRectBLO<S> {
+impl<S: BaseNum> From<BoundRect<S>> for OffsetRect<S> {
     #[inline]
-    fn from(rect: OffsetRect<S>) -> BoundRectBLO<S> {
-        BoundRectBLO {
-            bl: rect.origin,
-            tr: rect.origin + rect.dims
-        }
-    }
-}
-
-impl<S: BaseNum> From<OffsetRect<S>> for BoundRectTLO<S> {
-    #[inline]
-    fn from(rect: OffsetRect<S>) -> BoundRectTLO<S> {
-        BoundRectTLO {
-            tl: rect.origin,
-            br: rect.origin + rect.dims
-        }
-    }
-}
-
-impl<S: BaseNum> From<BoundRectBLO<S>> for OffsetRect<S> {
-    #[inline]
-    fn from(rect: BoundRectBLO<S>) -> OffsetRect<S> {
+    fn from(rect: BoundRect<S>) -> OffsetRect<S> {
         OffsetRect {
-            origin: rect.bl,
-            dims: rect.tr.to_vec() - rect.bl.to_vec()
-        }
-    }
-}
-
-impl<S: BaseNum> From<BoundRectTLO<S>> for OffsetRect<S> {
-    #[inline]
-    fn from(rect: BoundRectTLO<S>) -> OffsetRect<S> {
-        OffsetRect {
-            origin: rect.tl,
-            dims: rect.br.to_vec() - rect.tl.to_vec()
+            origin: rect.min,
+            dims: rect.max.to_vec() - rect.min.to_vec()
         }
     }
 }
@@ -347,42 +224,22 @@ impl<S: BaseNum> Sub<Vector2<S>> for OffsetRect<S> {
     }
 }
 
-impl<S: BaseNum> Add<Vector2<S>> for BoundRectBLO<S> {
+impl<S: BaseNum> Add<Vector2<S>> for BoundRect<S> {
     type Output = Self;
     #[inline]
-    fn add(mut self, rhs: Vector2<S>) -> BoundRectBLO<S> {
-        self.bl += rhs;
-        self.tr += rhs;
+    fn add(mut self, rhs: Vector2<S>) -> BoundRect<S> {
+        self.min += rhs;
+        self.max += rhs;
         self
     }
 }
 
-impl<S: BaseNum> Add<Vector2<S>> for BoundRectTLO<S> {
+impl<S: BaseNum> Sub<Vector2<S>> for BoundRect<S> {
     type Output = Self;
     #[inline]
-    fn add(mut self, rhs: Vector2<S>) -> BoundRectTLO<S> {
-        self.tl += rhs;
-        self.br += rhs;
-        self
-    }
-}
-
-impl<S: BaseNum> Sub<Vector2<S>> for BoundRectBLO<S> {
-    type Output = Self;
-    #[inline]
-    fn sub(mut self, rhs: Vector2<S>) -> BoundRectBLO<S> {
-        self.bl -= rhs;
-        self.tr -= rhs;
-        self
-    }
-}
-
-impl<S: BaseNum> Sub<Vector2<S>> for BoundRectTLO<S> {
-    type Output = Self;
-    #[inline]
-    fn sub(mut self, rhs: Vector2<S>) -> BoundRectTLO<S> {
-        self.tl -= rhs;
-        self.br -= rhs;
+    fn sub(mut self, rhs: Vector2<S>) -> BoundRect<S> {
+        self.min -= rhs;
+        self.max -= rhs;
         self
     }
 }
