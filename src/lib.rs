@@ -35,6 +35,17 @@ pub trait Rectangle {
     fn dims(&self) -> Vector2<Self::Scalar>;
 
     #[inline]
+    fn contains(&self, point: Point2<Self::Scalar>) -> bool {
+        let origin_corner = self.origin_corner();
+        let dims = self.dims();
+
+        origin_corner.x <= point.x &&
+        origin_corner.y <= point.y &&
+        point.x <= origin_corner.x + dims.x &&
+        point.y <= origin_corner.y + dims.y
+    }
+
+    #[inline]
     fn width(&self) -> Self::Scalar {
         self.dims().x
     }
