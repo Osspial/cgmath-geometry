@@ -1,4 +1,5 @@
 use cgmath::*;
+
 use std::ops::{Add, Sub};
 use num_traits::{Bounded, NumCast, ToPrimitive};
 
@@ -21,28 +22,46 @@ pub struct BoundRect<S> {
 
 pub trait Rectangle {
     type Scalar: BaseNum;
-
-    fn origin_corner(&self) -> Point2<Self::Scalar>;
-    fn dims(&self) -> Vector2<Self::Scalar>;
+    type Point: EuclideanSpace<Scalar=Self::Scalar, Diff=Self::Vector>;
+    type Vector: VectorSpace<Scalar=Self::Scalar> + Array<Element=Self::Scalar>;
 
     #[inline]
-    fn contains(&self, point: Point2<Self::Scalar>) -> bool {
-        let origin_corner = self.origin_corner();
-        let dims = self.dims();
+    fn min(&self) -> Self::Point {
+        self.max() - self.dims()
+    }
 
-        origin_corner.x <= point.x &&
-        origin_corner.y <= point.y &&
-        point.x <= origin_corner.x + dims.x &&
-        point.y <= origin_corner.y + dims.y
+    #[inline]
+    fn max(&self) -> Self::Point {
+        self.min() + self.dims()
+    }
+
+    #[inline]
+    fn dims(&self) -> Self::Vector {
+        self.max() - self.min()
     }
 
     #[inline]
     fn width(&self) -> Self::Scalar {
-        self.dims().x
+        self.dims()[0]
     }
     #[inline]
     fn height(&self) -> Self::Scalar {
-        self.dims().y
+        self.dims()[1]
+    }
+
+    #[inline]
+    fn contains(&self, point: Self::Point) -> bool {
+        let min = self.min();
+        let max = self.max();
+
+        let mut contains = true;
+        for i in 0..Self::Point::len() {
+            contains = contains &&
+                min[i] <= point[i] &&
+                point[i] <= max[i];
+        }
+
+        contains
     }
 }
 
@@ -111,14 +130,13 @@ impl<S> BoundRect<S> {
 
 impl<S: BaseNum> Rectangle for DimsRect<S> {
     type Scalar = S;
+    type Point = Point2<S>;
+    type Vector = Vector2<S>;
 
     #[inline]
-    fn origin_corner(&self) -> Point2<S> { Point2::new(S::zero(), S::zero())
-    }
+    fn min(&self) -> Point2<S> {Point2::new(S::zero(), S::zero())}
     #[inline]
-    fn dims(&self) -> Vector2<S> {
-        self.dims
-    }
+    fn dims(&self) -> Vector2<S> {self.dims}
 }
 
 impl<S: Bounded> Bounded for DimsRect<S> {
@@ -139,28 +157,24 @@ impl<S: Bounded> Bounded for DimsRect<S> {
 
 impl<S: BaseNum> Rectangle for OffsetRect<S> {
     type Scalar = S;
+    type Point = Point2<S>;
+    type Vector = Vector2<S>;
 
     #[inline]
-    fn origin_corner(&self) -> Point2<S> {
-        self.origin
-    }
+    fn min(&self) -> Point2<S> {self.origin}
     #[inline]
-    fn dims(&self) -> Vector2<S> {
-        self.dims
-    }
+    fn dims(&self) -> Vector2<S> {self.dims}
 }
 
 impl<S: BaseNum> Rectangle for BoundRect<S> {
     type Scalar = S;
+    type Point = Point2<S>;
+    type Vector = Vector2<S>;
 
     #[inline]
-    fn origin_corner(&self) -> Point2<S> {
-        self.min
-    }
+    fn min(&self) -> Point2<S> {self.min}
     #[inline]
-    fn dims(&self) -> Vector2<S> {
-        self.max.to_vec() - self.min.to_vec()
-    }
+    fn max(&self) -> Point2<S> {self.max}
 }
 
 impl<S: BaseNum> From<DimsRect<S>> for OffsetRect<S> {
