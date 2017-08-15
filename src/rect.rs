@@ -1,7 +1,10 @@
+use {MulDiv, BaseNumGeom};
 use cgmath::*;
 
+use line::Line;
+
 use std::ops::{Add, Sub};
-use num_traits::{Bounded, NumCast, ToPrimitive};
+use num_traits::{Bounded, NumCast, ToPrimitive, PrimInt};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct DimsRect<S> {
@@ -21,9 +24,9 @@ pub struct BoundRect<S> {
 }
 
 pub trait Rectangle {
-    type Scalar: BaseNum;
-    type Point: EuclideanSpace<Scalar=Self::Scalar, Diff=Self::Vector>;
-    type Vector: VectorSpace<Scalar=Self::Scalar> + Array<Element=Self::Scalar>;
+    type Scalar: BaseNum + MulDiv;
+    type Point: EuclideanSpace<Scalar=Self::Scalar, Diff=Self::Vector> + ElementWise<Self::Scalar> + MulDiv<Self::Scalar>;
+    type Vector: VectorSpace<Scalar=Self::Scalar> + Array<Element=Self::Scalar> + MulDiv + MulDiv<Self::Scalar> + PartialEq;
 
     #[inline]
     fn min(&self) -> Self::Point {
@@ -62,6 +65,60 @@ pub trait Rectangle {
         }
 
         contains
+    }
+
+    #[inline]
+    fn intersects_int<L>(&self, line: L) -> (Option<Self::Point>, Option<Self::Point>)
+        where L: Line<Scalar=Self::Scalar, Point=Self::Point, Vector=Self::Vector>,
+              Self::Scalar: PrimInt
+    {
+        let min = self.min();
+        let max = self.max();
+
+        let vec_one = Self::Vector::from_value(Self::Scalar::one());
+
+        let (start, end) = (line.start(), line.end());
+        let (mut enter, mut exit) = (start, end);
+        let (mut enter_valid, mut exit_valid) = (vec_one, vec_one);
+        let dir = line.dir();
+
+        for i in 0..Self::Point::len() {
+            let (inters_min_axis, inters_max_axis);
+            let (line_min_axis, line_max_axis);
+            if enter[i] <= exit[i] {
+                inters_min_axis = &mut enter;
+                inters_max_axis = &mut exit;
+                line_min_axis = start;
+                line_max_axis = end;
+            } else {
+                inters_min_axis = &mut exit;
+                inters_max_axis = &mut enter;
+                line_min_axis = end;
+                line_max_axis = start;
+            };
+
+            if inters_min_axis[i] <= min[i] && min[i] <= inters_max_axis[i] {
+                *inters_min_axis = *inters_min_axis + dir.mul_div(min[i] - inters_min_axis[i], dir[i]);
+            } else if !(line_min_axis[i] <= min[i] && min[i] <= line_max_axis[i]) {
+                enter_valid[i] = Self::Scalar::zero();
+            }
+            if inters_min_axis[i] <= max[i] && max[i] <= inters_max_axis[i] {
+                *inters_max_axis = *inters_max_axis - dir.mul_div(inters_max_axis[i] - max[i], dir[i]);
+            } else if !(line_min_axis[i] <= max[i] && max[i] <= line_max_axis[i]) {
+                exit_valid[i] = Self::Scalar::zero();
+            }
+        }
+
+        (
+            match enter_valid == vec_one {
+                true => Some(enter),
+                false => None
+            },
+            match exit_valid == vec_one {
+                true => Some(exit),
+                false => None
+            }
+        )
     }
 }
 
@@ -128,7 +185,7 @@ impl<S> BoundRect<S> {
     }
 }
 
-impl<S: BaseNum> Rectangle for DimsRect<S> {
+impl<S: BaseNumGeom> Rectangle for DimsRect<S> {
     type Scalar = S;
     type Point = Point2<S>;
     type Vector = Vector2<S>;
@@ -155,7 +212,7 @@ impl<S: Bounded> Bounded for DimsRect<S> {
     }
 }
 
-impl<S: BaseNum> Rectangle for OffsetRect<S> {
+impl<S: BaseNumGeom> Rectangle for OffsetRect<S> {
     type Scalar = S;
     type Point = Point2<S>;
     type Vector = Vector2<S>;
@@ -166,7 +223,7 @@ impl<S: BaseNum> Rectangle for OffsetRect<S> {
     fn dims(&self) -> Vector2<S> {self.dims}
 }
 
-impl<S: BaseNum> Rectangle for BoundRect<S> {
+impl<S: BaseNumGeom> Rectangle for BoundRect<S> {
     type Scalar = S;
     type Point = Point2<S>;
     type Vector = Vector2<S>;
