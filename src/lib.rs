@@ -43,18 +43,32 @@ macro_rules! impl_mul_div_array_default {
 }
 
 macro_rules! impl_mul_div_array_int {
-    ($sm:ident => $bg:ident; $($array:ident),*) => {$(
+    ($sm:ident => $bg:ident; $($array:ident{ $($field:ident),+ }),*) => {$(
         impl MulDiv for $array<$sm> {
             #[inline(always)]
             fn mul_div(self, mul: $array<$sm>, div: $array<$sm>) -> $array<$sm> {
-                self.cast::<$bg>().mul_element_wise(mul.cast()).div_element_wise(div.cast()).cast()
+                fn cast_no_check(sm: $array<$sm>) -> $array<$bg> {
+                    $array{ $($field: sm.$field as $bg),+ }
+                }
+                let res = cast_no_check(self).mul_element_wise(cast_no_check(mul)).div_element_wise(cast_no_check(div));
+                $(
+                    debug_assert!(res.$field <= $sm::max_value() as $bg);
+                )+
+                $array{ $($field: res.$field as $sm),+ }
             }
         }
 
         impl MulDiv<$sm> for $array<$sm> {
             #[inline(always)]
             fn mul_div(self, mul: $sm, div: $sm) -> $array<$sm> {
-                self.cast::<$bg>().mul_element_wise(mul as $bg).div_element_wise(div as $bg).cast()
+                fn cast_no_check(sm: $array<$sm>) -> $array<$bg> {
+                    $array{ $($field: sm.$field as $bg),+ }
+                }
+                let res = cast_no_check(self).mul_element_wise(mul as $bg).div_element_wise(div as $bg);
+                $(
+                    debug_assert!(res.$field <= $sm::max_value() as $bg);
+                )+
+                $array{ $($field: res.$field as $sm),+ }
             }
         }
     )*};
@@ -71,7 +85,7 @@ macro_rules! impl_mul_div_int {
             }
         }
 
-        impl_mul_div_array_int!($sm => $bg; Point1, Point2, Point3, Vector1, Vector2, Vector3, Vector4);
+        impl_mul_div_array_int!($sm => $bg; Point1{x}, Point2{x, y}, Point3{x, y, z}, Vector1{x}, Vector2{x, y}, Vector3{x, y, z}, Vector4{x, y, z, w});
     )*}
 }
 
