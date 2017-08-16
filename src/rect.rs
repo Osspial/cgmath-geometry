@@ -75,11 +75,9 @@ pub trait Rectangle {
         let min = self.min();
         let max = self.max();
 
-        let vec_one = Self::Vector::from_value(Self::Scalar::one());
-
         let (start, end) = (line.start(), line.end());
         let (mut enter, mut exit) = (start, end);
-        let (mut enter_valid, mut exit_valid) = (vec_one, vec_one);
+        let (mut enter_valid, mut exit_valid) = (false, false);
         let dir = line.dir();
 
         for i in 0..Self::Point::len() {
@@ -100,21 +98,21 @@ pub trait Rectangle {
             if inters_min_axis[i] <= min[i] && min[i] <= inters_max_axis[i] {
                 *inters_min_axis = *inters_min_axis + dir.mul_div(min[i] - inters_min_axis[i], dir[i]);
             } else if !(line_min_axis[i] <= min[i] && min[i] <= line_max_axis[i]) {
-                enter_valid[i] = Self::Scalar::zero();
+                enter_valid = false;
             }
             if inters_min_axis[i] <= max[i] && max[i] <= inters_max_axis[i] {
                 *inters_max_axis = *inters_max_axis - dir.mul_div(inters_max_axis[i] - max[i], dir[i]);
             } else if !(line_min_axis[i] <= max[i] && max[i] <= line_max_axis[i]) {
-                exit_valid[i] = Self::Scalar::zero();
+                exit_valid = false;
             }
         }
 
         (
-            match enter_valid == vec_one {
+            match enter_valid {
                 true => Some(enter),
                 false => None
             },
-            match exit_valid == vec_one {
+            match exit_valid {
                 true => Some(exit),
                 false => None
             }
