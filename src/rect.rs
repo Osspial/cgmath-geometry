@@ -1,6 +1,8 @@
 use {MulDiv, BaseNumGeom};
 use cgmath::*;
 
+use std::fmt::Debug;
+
 use line::Line;
 
 use std::ops::{Add, Sub};
@@ -25,8 +27,8 @@ pub struct BoundRect<S> {
 
 pub trait Rectangle {
     type Scalar: BaseNum + MulDiv;
-    type Point: EuclideanSpace<Scalar=Self::Scalar, Diff=Self::Vector> + ElementWise<Self::Scalar> + MulDiv<Self::Scalar>;
-    type Vector: VectorSpace<Scalar=Self::Scalar> + Array<Element=Self::Scalar> + MulDiv + MulDiv<Self::Scalar> + PartialEq;
+    type Point: EuclideanSpace<Scalar=Self::Scalar, Diff=Self::Vector> + ElementWise<Self::Scalar> + MulDiv<Self::Scalar> + Debug;
+    type Vector: VectorSpace<Scalar=Self::Scalar> + Array<Element=Self::Scalar> + MulDiv + MulDiv<Self::Scalar> + PartialEq + Debug;
 
     #[inline]
     fn min(&self) -> Self::Point {
@@ -74,6 +76,7 @@ pub trait Rectangle {
     {
         let min = self.min();
         let max = self.max();
+        let zero = Self::Scalar::zero();
 
         let (start, end) = (line.start(), line.end());
         let (mut enter, mut exit) = (start, end);
@@ -95,12 +98,12 @@ pub trait Rectangle {
                 line_max_axis = start;
             };
 
-            if inters_min_axis[i] <= min[i] && min[i] <= inters_max_axis[i] {
+            if inters_min_axis[i] <= min[i] && min[i] <= inters_max_axis[i] && dir[i] != zero {
                 *inters_min_axis = *inters_min_axis + dir.mul_div(min[i] - inters_min_axis[i], dir[i]);
             } else if !(line_min_axis[i] <= min[i] && min[i] <= line_max_axis[i]) {
                 enter_valid = false;
             }
-            if inters_min_axis[i] <= max[i] && max[i] <= inters_max_axis[i] {
+            if inters_min_axis[i] <= max[i] && max[i] <= inters_max_axis[i] && dir[i] != zero {
                 *inters_max_axis = *inters_max_axis - dir.mul_div(inters_max_axis[i] - max[i], dir[i]);
             } else if !(line_min_axis[i] <= max[i] && max[i] <= line_max_axis[i]) {
                 exit_valid = false;
