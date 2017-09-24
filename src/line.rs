@@ -102,3 +102,17 @@ impl<S: BaseNumGeom> Line for Segment<S> {
         self.end
     }
 }
+
+impl<S: BaseNumGeom> Segment<S> {
+    #[inline]
+    pub fn new(start: Point2<S>, end: Point2<S>) -> Segment<S> {
+        Segment{ start, end }
+    }
+}
+
+impl<S: BaseNumGeom> Ray<S> {
+    #[inline]
+    pub fn new(origin: Point2<S>, dir: Vector2<S>) -> Ray<S> {
+        Ray{ origin, dir }
+    }
+}
