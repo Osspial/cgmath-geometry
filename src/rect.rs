@@ -80,7 +80,7 @@ pub trait Rectangle {
 
         let (start, end) = (line.start(), line.end());
         let (mut enter, mut exit) = (start, end);
-        let (mut enter_valid, mut exit_valid) = (false, false);
+        let (mut enter_valid, mut exit_valid) = (true, true);
         let dir = line.dir();
 
         for i in 0..Self::Point::len() {
