@@ -90,17 +90,17 @@ pub trait Rectangle {
                     enter_valid = true;
                 }
 
-                if enter[i] < max[i] && max[i] < exit[i] && dir[i] != zero {
+                if enter[i] <= max[i] && max[i] < exit[i] && dir[i] != zero {
                     exit = exit - dir.mul_div(exit[i] - max[i], dir[i]);
                     exit_valid = true;
                 }
             } else {
-                if enter[i] <= max[i] && max[i] <= exit[i] && dir[i] != zero {
+                if exit[i] <= max[i] && max[i] <= enter[i] && dir[i] != zero {
                     enter = enter - dir.mul_div(enter[i] - max[i], dir[i]);
                     enter_valid = true;
                 }
 
-                if enter[i] < min[i] && min[i] < exit[i] && dir[i] != zero {
+                if exit[i] < min[i] && min[i] <= enter[i] && dir[i] != zero {
                     exit = exit + dir.mul_div(min[i] - exit[i], dir[i]);
                     exit_valid = true;
                 }
@@ -330,6 +330,27 @@ mod tests {
         let rect = BoundRect::new(20, 20, 30, 40);
         let segment = Segment::new(25, 25, 20, 25);
         assert_eq!((None, None), rect.intersects_int(segment));
+    }
+
+    #[test]
+    fn line_touch_edge_outer_exit() {
+        let rect = BoundRect::new(20, 20, 30, 40);
+        let segment = Segment::new(25, 15, 25, 20);
+        assert_eq!((Some(Point2::new(25, 20)), None), rect.intersects_int(segment));
+    }
+
+    #[test]
+    fn line_exit_single_move_lt() {
+        let rect = BoundRect::new(20, 20, 30, 40);
+        let segment = Segment::new(20, 25, 19, 25);
+        assert_eq!((None, Some(Point2::new(20, 25))), rect.intersects_int(segment));
+    }
+
+    #[test]
+    fn line_exit_single_move_gt() {
+        let rect = BoundRect::new(20, 20, 30, 40);
+        let segment = Segment::new(30, 25, 31, 25);
+        assert_eq!((None, Some(Point2::new(30, 25))), rect.intersects_int(segment));
     }
 
     #[test]
