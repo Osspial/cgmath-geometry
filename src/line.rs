@@ -105,14 +105,14 @@ impl<S: BaseNumGeom> Line for Segment<S> {
 
 impl<S: BaseNumGeom> Segment<S> {
     #[inline]
-    pub fn new(start: Point2<S>, end: Point2<S>) -> Segment<S> {
-        Segment{ start, end }
+    pub fn new(start_x: S, start_y: S, end_x: S, end_y: S) -> Segment<S> {
+        Segment{ start: Point2::new(start_x, start_y), end: Point2::new(end_x, end_y) }
     }
 }
 
 impl<S: BaseNumGeom> Ray<S> {
     #[inline]
-    pub fn new(origin: Point2<S>, dir: Vector2<S>) -> Ray<S> {
-        Ray{ origin, dir }
+    pub fn new(origin_x: S, origin_y: S, dir_x: S, dir_y: S) -> Ray<S> {
+        Ray{ origin: Point2::new(origin_x, origin_y), dir: Vector2::new(dir_x, dir_y) }
     }
 }
