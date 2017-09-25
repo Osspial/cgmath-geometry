@@ -84,29 +84,28 @@ pub trait Rectangle {
         let dir = line.dir();
 
         for i in 0..Self::Point::len() {
-            let (inters_min_axis, inters_max_axis);
-            let (min_valid, max_valid);
             if enter[i] <= exit[i] {
-                inters_min_axis = &mut enter;
-                inters_max_axis = &mut exit;
-                min_valid = &mut enter_valid;
-                max_valid = &mut exit_valid;
+                if enter[i] <= min[i] && min[i] <= exit[i] && dir[i] != zero {
+                    enter = enter + dir.mul_div(min[i] - enter[i], dir[i]);
+                    enter_valid = true;
+                }
+
+                if enter[i] < max[i] && max[i] < exit[i] && dir[i] != zero {
+                    exit = exit - dir.mul_div(exit[i] - max[i], dir[i]);
+                    exit_valid = true;
+                }
             } else {
-                inters_min_axis = &mut exit;
-                inters_max_axis = &mut enter;
-                min_valid = &mut exit_valid;
-                max_valid = &mut enter_valid;
+                if enter[i] <= max[i] && max[i] <= exit[i] && dir[i] != zero {
+                    enter = enter - dir.mul_div(enter[i] - max[i], dir[i]);
+                    enter_valid = true;
+                }
+
+                if enter[i] < min[i] && min[i] < exit[i] && dir[i] != zero {
+                    exit = exit + dir.mul_div(min[i] - exit[i], dir[i]);
+                    exit_valid = true;
+                }
             };
 
-            if inters_min_axis[i] <= min[i] && min[i] <= inters_max_axis[i] && dir[i] != zero {
-                *inters_min_axis = *inters_min_axis + dir.mul_div(min[i] - inters_min_axis[i], dir[i]);
-                *min_valid = true;
-            }
-
-            if inters_min_axis[i] <= max[i] && max[i] <= inters_max_axis[i] && dir[i] != zero {
-                *inters_max_axis = *inters_max_axis - dir.mul_div(inters_max_axis[i] - max[i], dir[i]);
-                *max_valid = true;
-            }
         }
 
         for i in 0..Self::Point::len() {
@@ -321,3 +320,36 @@ impl<S: BaseNum> Sub<Vector2<S>> for BoundRect<S> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use line::Segment;
+
+    #[test]
+    fn line_touch_edge_exit() {
+        let rect = BoundRect::new(20, 20, 30, 40);
+        let segment = Segment::new(25, 25, 20, 25);
+        assert_eq!((None, None), rect.intersects_int(segment));
+    }
+
+    #[test]
+    fn line_touch_edge_enter() {
+        let rect = BoundRect::new(20, 20, 30, 40);
+        let segment = Segment::new(25, 0, 27, 20);
+        assert_eq!((Some(Point2::new(27, 20)), None), rect.intersects_int(segment));
+    }
+
+    #[test]
+    fn intersect_diagonal() {
+        let rect = BoundRect::new(20, 20, 40, 40);
+        let segment = Segment::new(0, 0, 50, 50);
+        assert_eq!((Some(Point2::new(20, 20)), Some(Point2::new(40, 40))), rect.intersects_int(segment));
+    }
+
+    #[test]
+    fn intersect_horizontal() {
+        let rect = BoundRect::new(20, 20, 30, 40);
+        let segment = Segment::new(0, 25, 50, 25);
+        assert_eq!((Some(Point2::new(20, 25)), Some(Point2::new(30, 25))), rect.intersects_int(segment));
+    }
+}
