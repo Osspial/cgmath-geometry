@@ -98,17 +98,13 @@ pub trait Rectangle {
                 max_valid = &mut enter_valid;
             };
 
-            if inters_min_axis[i] <= min[i] && min[i] <= inters_max_axis[i] {
-                if dir[i] != zero {
-                    *inters_min_axis = *inters_min_axis + dir.mul_div(min[i] - inters_min_axis[i], dir[i]);
-                }
+            if inters_min_axis[i] <= min[i] && min[i] <= inters_max_axis[i] && dir[i] != zero {
+                *inters_min_axis = *inters_min_axis + dir.mul_div(min[i] - inters_min_axis[i], dir[i]);
                 *min_valid = true;
             }
 
-            if inters_min_axis[i] <= max[i] && max[i] <= inters_max_axis[i] {
-                if dir[i] != zero {
-                    *inters_max_axis = *inters_max_axis - dir.mul_div(inters_max_axis[i] - max[i], dir[i]);
-                }
+            if inters_min_axis[i] <= max[i] && max[i] <= inters_max_axis[i] && dir[i] != zero {
+                *inters_max_axis = *inters_max_axis - dir.mul_div(inters_max_axis[i] - max[i], dir[i]);
                 *max_valid = true;
             }
         }
