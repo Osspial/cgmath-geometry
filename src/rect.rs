@@ -72,7 +72,7 @@ pub trait Rectangle {
     #[inline]
     fn intersects_int<L>(&self, line: L) -> (Option<Self::Point>, Option<Self::Point>)
         where L: Line<Scalar=Self::Scalar, Point=Self::Point, Vector=Self::Vector>,
-              Self::Scalar: PrimInt
+              Self::Scalar: PrimInt + Debug
     {
         let min = self.min();
         let max = self.max();
@@ -80,32 +80,44 @@ pub trait Rectangle {
 
         let (start, end) = (line.start(), line.end());
         let (mut enter, mut exit) = (start, end);
-        let (mut enter_valid, mut exit_valid) = (true, true);
+        let (mut enter_valid, mut exit_valid) = (false, false);
         let dir = line.dir();
 
         for i in 0..Self::Point::len() {
             let (inters_min_axis, inters_max_axis);
-            let (line_min_axis, line_max_axis);
+            let (min_valid, max_valid);
             if enter[i] <= exit[i] {
                 inters_min_axis = &mut enter;
                 inters_max_axis = &mut exit;
-                line_min_axis = start;
-                line_max_axis = end;
+                min_valid = &mut enter_valid;
+                max_valid = &mut exit_valid;
             } else {
                 inters_min_axis = &mut exit;
                 inters_max_axis = &mut enter;
-                line_min_axis = end;
-                line_max_axis = start;
+                min_valid = &mut exit_valid;
+                max_valid = &mut enter_valid;
             };
 
-            if inters_min_axis[i] <= min[i] && min[i] <= inters_max_axis[i] && dir[i] != zero {
-                *inters_min_axis = *inters_min_axis + dir.mul_div(min[i] - inters_min_axis[i], dir[i]);
-            } else if !(line_min_axis[i] <= min[i] && min[i] <= line_max_axis[i]) {
+            if inters_min_axis[i] <= min[i] && min[i] <= inters_max_axis[i] {
+                if dir[i] != zero {
+                    *inters_min_axis = *inters_min_axis + dir.mul_div(min[i] - inters_min_axis[i], dir[i]);
+                }
+                *min_valid = true;
+            }
+
+            if inters_min_axis[i] <= max[i] && max[i] <= inters_max_axis[i] {
+                if dir[i] != zero {
+                    *inters_max_axis = *inters_max_axis - dir.mul_div(inters_max_axis[i] - max[i], dir[i]);
+                }
+                *max_valid = true;
+            }
+        }
+
+        for i in 0..Self::Point::len() {
+            if enter[i] < min[i] || max[i] < enter[i] {
                 enter_valid = false;
             }
-            if inters_min_axis[i] <= max[i] && max[i] <= inters_max_axis[i] && dir[i] != zero {
-                *inters_max_axis = *inters_max_axis - dir.mul_div(inters_max_axis[i] - max[i], dir[i]);
-            } else if !(line_min_axis[i] <= max[i] && max[i] <= line_max_axis[i]) {
+            if exit[i] < min[i] || max[i] < exit[i] {
                 exit_valid = false;
             }
         }
