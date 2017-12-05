@@ -55,6 +55,11 @@ pub trait Rectangle {
     }
 
     #[inline]
+    fn center(&self) -> Self::Point {
+        self.min() + (self.dims() / (Self::Scalar::one() + Self::Scalar::one()))
+    }
+
+    #[inline]
     fn contains(&self, point: Self::Point) -> bool {
         let min = self.min();
         let max = self.max();
