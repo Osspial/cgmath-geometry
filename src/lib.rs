@@ -3,8 +3,9 @@ extern crate cgmath;
 extern crate num_traits;
 
 pub mod ellipse;
-pub mod rect;
 pub mod line;
+pub mod polar;
+pub mod rect;
 
 pub use self::ellipse::*;
 pub use self::rect::*;
