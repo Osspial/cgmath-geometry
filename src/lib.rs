@@ -2,9 +2,11 @@
 extern crate cgmath;
 extern crate num_traits;
 
+pub mod ellipse;
 pub mod rect;
 pub mod line;
 
+pub use self::ellipse::*;
 pub use self::rect::*;
 pub use self::line::*;
 

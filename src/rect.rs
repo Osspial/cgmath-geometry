@@ -27,8 +27,8 @@ pub struct BoundRect<S> {
 
 pub trait Rectangle {
     type Scalar: BaseNum + MulDiv;
-    type Point: EuclideanSpace<Scalar=Self::Scalar, Diff=Self::Vector> + ElementWise<Self::Scalar> + MulDiv<Self::Scalar> + Debug;
-    type Vector: VectorSpace<Scalar=Self::Scalar> + Array<Element=Self::Scalar> + MulDiv + MulDiv<Self::Scalar> + PartialEq + Debug;
+    type Point: EuclideanSpace<Scalar=Self::Scalar, Diff=Self::Vector> + ElementWise<Self::Scalar> + MulDiv<Self::Scalar>;
+    type Vector: VectorSpace<Scalar=Self::Scalar> + Array<Element=Self::Scalar> + MulDiv + MulDiv<Self::Scalar>;
 
     #[inline]
     fn min(&self) -> Self::Point {
