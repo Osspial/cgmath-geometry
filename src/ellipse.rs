@@ -1,5 +1,5 @@
 use {BaseScalarGeom, MulDiv};
-use rect::{DimsBox, Box};
+use rect::{DimsBox, GeoBox};
 use polar::{Polar2, PolarSpace};
 
 use cgmath::*;

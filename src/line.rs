@@ -2,7 +2,7 @@ use {MulDiv, BaseScalarGeom, Intersect, Intersection};
 use cgmath::*;
 use num_traits::{Bounded, Float};
 use std::cmp::Ordering;
-use rect::{BoundBox, Box};
+use rect::{BoundBox, GeoBox};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Ray<P: EuclideanSpace> {

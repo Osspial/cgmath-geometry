@@ -23,7 +23,7 @@ pub struct BoundBox<P: EuclideanSpace> {
     pub max: P
 }
 
-pub trait Box {
+pub trait GeoBox {
     type Scalar: BaseScalarGeom;
     type Point: EuclideanSpace<Scalar=Self::Scalar, Diff=Self::Vector> + ElementWise<Self::Scalar> + MulDiv<Self::Scalar>;
     type Vector: VectorSpace<Scalar=Self::Scalar> + Array<Element=Self::Scalar> + MulDiv + MulDiv<Self::Scalar> + ElementWise;
@@ -114,14 +114,14 @@ pub trait Box {
         macro_rules! switch_fn {
             ($name:ident) => {
                 fn $name<R, L>(rect: &R, line: L) -> (Option<R::Point>, Option<R::Point>)
-                    where R: Box<Scalar=S> + ?Sized,
+                    where R: GeoBox<Scalar=S> + ?Sized,
                           R::Point: EuclideanSpace<Scalar=S, Diff=R::Vector> + ElementWise<S> + MulDiv<S>,
                           R::Vector: VectorSpace<Scalar=S> + Array<Element=S> + MulDiv + MulDiv<S>,
                           L: Line<Scalar=R::Scalar, Point=R::Point, Vector=R::Vector>;
             };
             ($({$prefix:tt})* $name:ident($rect:ident, $line:ident), $body:block) => {
                 $($prefix)* fn $name<R, L>($rect: &R, $line: L) -> (Option<R::Point>, Option<R::Point>)
-                    where R: Box<Scalar=S> + ?Sized,
+                    where R: GeoBox<Scalar=S> + ?Sized,
                           R::Point: EuclideanSpace<Scalar=S, Diff=R::Vector> + ElementWise<S> + MulDiv<S>,
                           R::Vector: VectorSpace<Scalar=S> + Array<Element=S> + MulDiv + MulDiv<S>,
                           L: Line<Scalar=R::Scalar, Point=R::Point, Vector=R::Vector>
@@ -283,7 +283,7 @@ inherent_impl_bounds!(Point1, Vector1; new1; (min_x), (max_x));
 inherent_impl_bounds!(Point2, Vector2; new2; (min_x, min_y), (max_x, max_y));
 inherent_impl_bounds!(Point3, Vector3; new3; (min_x, min_y, min_z), (max_x, max_y, max_z));
 
-impl<P> Box for DimsBox<P>
+impl<P> GeoBox for DimsBox<P>
     where P: EuclideanSpace + ElementWise<P!(::Scalar)> + MulDiv<P!(::Scalar)>,
           P!(::Scalar): BaseScalarGeom,
           P::Diff: VectorSpace<Scalar=P!(::Scalar)> + Array<Element=P!(::Scalar)> + MulDiv + MulDiv<P!(::Scalar)> + ElementWise
@@ -325,7 +325,7 @@ impl<P> Bounded for DimsBox<P>
     }
 }
 
-impl<P> Box for OffsetBox<P>
+impl<P> GeoBox for OffsetBox<P>
     where P: EuclideanSpace + ElementWise<P!(::Scalar)> + MulDiv<P!(::Scalar)>,
           P!(::Scalar): BaseScalarGeom,
           P::Diff: VectorSpace<Scalar=P!(::Scalar)> + Array<Element=P!(::Scalar)> + MulDiv + MulDiv<P!(::Scalar)> + ElementWise
@@ -348,7 +348,7 @@ impl<P> Box for OffsetBox<P>
     fn dims(&self) -> P::Diff {self.dims}
 }
 
-impl<P> Box for BoundBox<P>
+impl<P> GeoBox for BoundBox<P>
     where P: EuclideanSpace + ElementWise<P!(::Scalar)> + MulDiv<P!(::Scalar)>,
           P!(::Scalar): BaseScalarGeom,
           P::Diff: VectorSpace<Scalar=P!(::Scalar)> + Array<Element=P!(::Scalar)> + MulDiv + MulDiv<P!(::Scalar)> + ElementWise
