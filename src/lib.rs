@@ -2,6 +2,10 @@
 extern crate cgmath;
 extern crate num_traits;
 
+macro_rules! P {
+    ($($t:tt)*) => (<P as EuclideanSpace>$($t)*);
+}
+
 pub mod ellipse;
 pub mod line;
 pub mod polar;
@@ -18,8 +22,24 @@ pub trait MulDiv<Rhs = Self> {
     fn mul_div(self, mul: Rhs, div: Rhs) -> Self;
 }
 
-pub trait BaseNumGeom: BaseNum + MulDiv + Bounded {}
-impl<T: BaseNum + MulDiv + Bounded> BaseNumGeom for T {}
+pub trait BaseScalarGeom: BaseNum + MulDiv + Bounded {}
+impl<T: BaseNum + MulDiv + Bounded> BaseScalarGeom for T {}
+
+fn cmp_min<S: BaseNum>(l: S, r: S) -> S {
+    if l < r {
+        l
+    } else {
+        r
+    }
+}
+
+fn cmp_max<S: BaseNum>(l: S, r: S) -> S {
+    if l > r {
+        l
+    } else {
+        r
+    }
+}
 
 macro_rules! impl_mul_div_array_default {
     ($($array:ident),*) => ($(

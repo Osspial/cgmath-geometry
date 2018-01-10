@@ -1,5 +1,5 @@
-use {BaseNumGeom, MulDiv};
-use rect::{DimsRect, Rectangle};
+use {BaseScalarGeom, MulDiv};
+use rect::{DimsBox, Box};
 use polar::{Polar2, PolarSpace};
 
 use cgmath::*;
@@ -10,9 +10,9 @@ pub struct Circle2<S> {
     pub radius: S
 }
 
-pub struct Ellipse2<S> {
+pub struct Ellipse2<S: BaseScalarGeom> {
     pub origin: Point2<S>,
-    pub dims: DimsRect<S>
+    pub dims: DimsBox<Point2<S>>
 }
 
 pub trait Ellipse {
@@ -78,10 +78,10 @@ impl<S> Ellipse for Circle2<S>
     }
 }
 impl<S> Circle for Circle2<S>
-    where S: BaseNumGeom + BaseFloat {}
+    where S: BaseScalarGeom + BaseFloat {}
 
 impl<S> Ellipse for Ellipse2<S>
-    where S: BaseNumGeom + BaseFloat
+    where S: BaseScalarGeom + BaseFloat
 {
     type Scalar = S;
     type Point = Point2<S>;
