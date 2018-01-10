@@ -47,11 +47,24 @@ pub trait Box {
 
     #[inline]
     fn width(&self) -> Self::Scalar {
-        self.dims()[0]
+        match Self::Point::len() >= 1 {
+            true => self.dims()[0],
+            false => Self::Scalar::zero()
+        }
     }
     #[inline]
     fn height(&self) -> Self::Scalar {
-        self.dims()[1]
+        match Self::Point::len() >= 2 {
+            true => self.dims()[1],
+            false => Self::Scalar::zero()
+        }
+    }
+    #[inline]
+    fn depth(&self) -> Self::Scalar {
+        match Self::Point::len() >= 3 {
+            true => self.dims()[2],
+            false => Self::Scalar::zero()
+        }
     }
 
     #[inline]
