@@ -1,4 +1,4 @@
-use {MulDiv, BaseScalarGeom};
+use {MulDiv, BaseScalarGeom, Intersect, Intersection};
 use cgmath::*;
 use num_traits::{Bounded, Float};
 use std::cmp::Ordering;
@@ -163,3 +163,31 @@ inherent_impl_segment!(Point3, Vector3; new3; (start_x, start_y, start_z), (end_
 inherent_impl_ray!(Point1, Vector1; new1; (origin_x), (dir_x));
 inherent_impl_ray!(Point2, Vector2; new2; (origin_x, origin_y), (dir_x, dir_y));
 inherent_impl_ray!(Point3, Vector3; new3; (origin_x, origin_y, origin_z), (dir_x, dir_y, dir_z));
+
+impl<L, R> Intersect<R> for L
+    where L::Scalar: BaseScalarGeom,
+          R: Line<Point=L::Point, Scalar=L::Scalar, Vector=L::Vector>,
+          L: Line<Point=Point2<<L as Line>::Scalar>, Vector=Vector2<<L as Line>::Scalar>>
+{
+    type Intersection = Point2<L::Scalar>;
+    fn intersect(self, rhs: R) -> Intersection<Point2<L::Scalar>> {
+        let (lo, ro) = (self.origin(), rhs.origin());
+        let (ld, rd) = (self.dir(), rhs.dir());
+        let slope_diff = ld.x*rd.y + rd.x*ld.y;
+
+        if slope_diff == L::Scalar::zero() {
+            return if (ro.y-lo.y) * (ro.x-lo.x) == ld.x * ld.y || ro == lo {
+                Intersection::Eq
+            } else {
+                Intersection::None
+            };
+        }
+        let t = (rd.y*(lo.x-ro.x) + rd.x*(ro.y-lo.y))/slope_diff;
+        let intersection = lo + ld * t;
+
+        match self.bounding_box().intersect_rect(rhs.bounding_box()).map(|r| r.contains(intersection)) {
+            Some(true) => Intersection::Some(intersection),
+            _ => Intersection::None
+        }
+    }
+}

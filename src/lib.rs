@@ -25,6 +25,18 @@ pub trait MulDiv<Rhs = Self> {
 pub trait BaseScalarGeom: BaseNum + MulDiv + Bounded {}
 impl<T: BaseNum + MulDiv + Bounded> BaseScalarGeom for T {}
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Intersection<I> {
+    Some(I),
+    Eq,
+    None
+}
+
+pub trait Intersect<RHS=Self> {
+    type Intersection;
+    fn intersect(self, rhs: RHS) -> Intersection<Self::Intersection>;
+}
+
 fn cmp_min<S: BaseNum>(l: S, r: S) -> S {
     if l < r {
         l
