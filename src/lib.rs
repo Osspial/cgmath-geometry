@@ -37,6 +37,16 @@ pub trait Intersect<RHS=Self> {
     fn intersect(self, rhs: RHS) -> Intersection<Self::Intersection>;
 }
 
+impl<I> Into<Option<I>> for Intersection<I> {
+    #[inline]
+    fn into(self) -> Option<I> {
+        match self {
+            Intersection::Some(i) => Some(i),
+            _ => None
+        }
+    }
+}
+
 fn cmp_min<S: BaseNum>(l: S, r: S) -> S {
     if l < r {
         l
