@@ -173,7 +173,7 @@ impl<L, R> Intersect<R> for L
     fn intersect(self, rhs: R) -> Intersection<Point2<L::Scalar>> {
         let (lo, ro) = (self.origin(), rhs.origin());
         let (ld, rd) = (self.dir(), rhs.dir());
-        let slope_diff = ld.x*rd.y + rd.x*ld.y;
+        let slope_diff = rd.y*ld.x - rd.x*ld.y;
 
         if slope_diff == L::Scalar::zero() {
             return if (ro.y-lo.y) * (ro.x-lo.x) == ld.x * ld.y || ro == lo {
@@ -182,7 +182,7 @@ impl<L, R> Intersect<R> for L
                 Intersection::None
             };
         }
-        let t = (rd.y*(lo.x-ro.x) + rd.x*(ro.y-lo.y))/slope_diff;
+        let t = (rd.x*(lo.y-ro.y) - rd.y*(lo.x-ro.x))/slope_diff;
         let intersection = lo + ld * t;
 
         match self.bounding_box().intersect_rect(rhs.bounding_box()).map(|r| r.contains(intersection)) {
