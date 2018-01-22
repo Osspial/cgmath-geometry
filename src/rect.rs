@@ -1,7 +1,7 @@
-use {MulDiv, BaseScalarGeom};
+use {MulDiv, BaseScalarGeom, AbsDistance};
 use cgmath::*;
 
-use line::Line;
+use line::{Linear, Segment};
 
 use std::ops::{Add, Sub};
 use num_traits::{Bounded, NumCast, ToPrimitive};
@@ -108,7 +108,7 @@ pub trait GeoBox {
     }
 
     fn intersect_line<L>(&self, line: L) -> (Option<Self::Point>, Option<Self::Point>)
-        where L: Line<Scalar=Self::Scalar, Point=Self::Point, Vector=Self::Vector>,
+        where L: Linear<Scalar=Self::Scalar, Point=Self::Point, Vector=Self::Vector>,
               Self::Scalar: Bounded
     {
         macro_rules! switch_fn {
@@ -117,41 +117,83 @@ pub trait GeoBox {
                     where R: GeoBox<Scalar=S> + ?Sized,
                           R::Point: EuclideanSpace<Scalar=S, Diff=R::Vector> + ElementWise<S> + MulDiv<S>,
                           R::Vector: VectorSpace<Scalar=S> + Array<Element=S> + MulDiv + MulDiv<S>,
-                          L: Line<Scalar=R::Scalar, Point=R::Point, Vector=R::Vector>;
+                          L: Linear<Scalar=R::Scalar, Point=R::Point, Vector=R::Vector>;
             };
             ($({$prefix:tt})* $name:ident($rect:ident, $line:ident), $body:block) => {
                 $($prefix)* fn $name<R, L>($rect: &R, $line: L) -> (Option<R::Point>, Option<R::Point>)
                     where R: GeoBox<Scalar=S> + ?Sized,
                           R::Point: EuclideanSpace<Scalar=S, Diff=R::Vector> + ElementWise<S> + MulDiv<S>,
                           R::Vector: VectorSpace<Scalar=S> + Array<Element=S> + MulDiv + MulDiv<S>,
-                          L: Line<Scalar=R::Scalar, Point=R::Point, Vector=R::Vector>
+                          L: Linear<Scalar=R::Scalar, Point=R::Point, Vector=R::Vector>
                 $body
             }
         }
         struct TS;
         trait TypeSwitch<S>
-            where S: BaseNum + MulDiv + Bounded
+            where S: BaseNum + MulDiv + Bounded + AbsDistance
         {
             switch_fn!{intersect_ts}
         }
 
-        // impl<S> TypeSwitch<S> for TS
-        //     where S: Float + BaseNum + MulDiv + Bounded
-        // {
-        //     switch_fn!{intersect_ts(rect, line), {
-        //         let line_dir = line.dir();
-        //     }}
-        // }
+        impl<S> TypeSwitch<S> for TS
+            where S: BaseFloat + BaseNum + MulDiv + Bounded + AbsDistance
+        {
+            switch_fn!{intersect_ts(rect, line), {
+                let line_origin = line.origin();
+                let dir = line.dir();
+                let dir_recip = line.dir_recip();
+                let (rect_min, rect_max) = (rect.min(), rect.max());
+
+                let (mut t_min, mut t_max) = (S::neg_infinity(), S::infinity());
+
+                for i in 0..L::Point::len() {
+                    let t_enter = (rect_min[i] - line_origin[i]) * dir_recip[i];
+                    let t_exit = (rect_max[i] - line_origin[i]) * dir_recip[i];
+                    t_min = t_min.max(t_enter.min(t_exit));
+                    t_max = t_max.min(t_enter.max(t_exit));
+                }
+
+                if t_max < t_min {
+                    (None, None)
+                } else {
+                    let t_of_point = |point: L::Point| {
+                        let mut t = S::zero();
+                        for i in 0..L::Point::len() {
+                            let t_axis = (point[i] - line_origin[i]) * dir_recip[i];
+                            if t_axis.abs() > t.abs() {
+                                t = t_axis;
+                            }
+                        }
+                        t
+                    };
+                    let t_enter = match line.start() {
+                        None => Some(t_min),
+                        Some(start) => match t_min >= t_of_point(start) {
+                            true => Some(t_min),
+                            false => None
+                        }
+                    };
+                    let t_exit = match line.end() {
+                        None => Some(t_max),
+                        Some(end) => match t_max <= t_of_point(end) {
+                            true => Some(t_max),
+                            false => None
+                        }
+                    };
+                    (t_enter.map(|t| line_origin + dir * t), t_exit.map(|t| line_origin + dir * t))
+                }
+            }}
+        }
 
         impl<S> TypeSwitch<S> for TS
-            where S: BaseNum + MulDiv + Bounded
+            where S: BaseNum + MulDiv + Bounded + AbsDistance
         {
             switch_fn!{{default} intersect_ts(rect, line), {
+                let zero = L::Scalar::zero();
                 let min = rect.min();
                 let max = rect.max();
-                let zero = S::zero();
 
-                let (start, end) = (line.start(), line.end());
+                let Segment{ start, end } = line.clip_to_scalar_bounds();
                 let (mut enter, mut exit) = (start, end);
                 let (mut enter_valid, mut exit_valid) = (false, false);
                 let dir = line.dir();

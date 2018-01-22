@@ -16,14 +16,22 @@ pub use self::rect::*;
 pub use self::line::*;
 
 use cgmath::*;
-use num_traits::Bounded;
 
 pub trait MulDiv<Rhs = Self> {
     fn mul_div(self, mul: Rhs, div: Rhs) -> Self;
 }
 
-pub trait BaseScalarGeom: BaseNum + MulDiv + Bounded {}
-impl<T: BaseNum + MulDiv + Bounded> BaseScalarGeom for T {}
+pub trait AbsDistance {
+    type Abs: BaseScalarGeom;
+
+    fn abs_distance(self, rhs: Self) -> Self::Abs;
+    fn to_abs(self) -> Self::Abs;
+    fn add_abs(self, rhs: Self::Abs) -> Self;
+    fn sub_abs(self, rhs: Self::Abs) -> Self;
+}
+
+pub trait BaseScalarGeom: BaseNum + MulDiv + Bounded + AbsDistance {}
+impl<T: BaseNum + MulDiv + Bounded + AbsDistance> BaseScalarGeom for T {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Intersection<I> {
@@ -134,6 +142,43 @@ macro_rules! impl_mul_div_int {
     )*}
 }
 
+macro_rules! impl_abs_dist_int {
+    ($(impl $i:ty => $u:ty;)+) => {$(
+        impl AbsDistance for $i {
+            type Abs = $u;
+
+            #[inline]
+            fn abs_distance(self, rhs: $i) -> $u {
+                let (min, max) = match self < rhs {
+                    true => (self, rhs),
+                    false => (rhs, self)
+                };
+                max.wrapping_sub(min) as $u
+            }
+
+            #[inline]
+            #[allow(unused_comparisons)]
+            fn to_abs(self) -> $u {
+                if self < 0 {
+                    (0 as $i).wrapping_sub(self) as $u
+                } else {
+                    self as $u
+                }
+            }
+
+            #[inline]
+            fn add_abs(self, rhs: $u) -> $i {
+                self.wrapping_add(rhs as $i)
+            }
+
+            #[inline]
+            fn sub_abs(self, rhs: $u) -> $i {
+                self.wrapping_sub(rhs as $i)
+            }
+        }
+    )+};
+}
+
 macro_rules! impl_mul_div_array_float {
     ($float:ident; $($array:ident),*) => {$(
         impl MulDiv for $array<$float> {
@@ -161,7 +206,34 @@ macro_rules! impl_mul_div_float {
             }
         }
 
-        impl_mul_div_array_float!($float; Point1);//, Point2, Point3, Vector1, Vector2, Vector3, Vector4);
+        impl AbsDistance for $float {
+            type Abs = $float;
+            #[inline]
+            fn abs_distance(self, rhs: $float) -> $float {
+                let (min, max) = match self < rhs {
+                    true => (self, rhs),
+                    false => (rhs, self)
+                };
+                max - min
+            }
+
+            #[inline]
+            fn to_abs(self) -> $float {
+                self.abs()
+            }
+
+            #[inline]
+            fn add_abs(self, rhs: $float) -> $float {
+                self + rhs
+            }
+
+            #[inline]
+            fn sub_abs(self, rhs: $float) -> $float {
+                self - rhs
+            }
+        }
+
+        impl_mul_div_array_float!($float; Point1, Point2, Point3, Vector1, Vector2, Vector3, Vector4);
     )*)
 }
 
@@ -172,6 +244,17 @@ impl_mul_div_int! {
     impl i8 => i16;
     impl i16 => i32;
     impl i32 => i64;
+}
+
+impl_abs_dist_int! {
+    impl i8 => u8;
+    impl u8 => u8;
+    impl i16 => u16;
+    impl u16 => u16;
+    impl i32 => u32;
+    impl u32 => u32;
+    // impl i64 => u64;
+    // impl u64 => u64;
 }
 
 impl_mul_div_array_default!(Point1, Point2, Point3, Vector1, Vector2, Vector3, Vector4);
