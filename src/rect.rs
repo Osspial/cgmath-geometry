@@ -317,6 +317,25 @@ macro_rules! inherent_impl_bounds {
     }
 }
 
+impl<P: EuclideanSpace> DimsBox<P> {
+    #[inline]
+    pub fn new(dims: P::Diff) -> DimsBox<P> {
+        DimsBox{ dims }
+    }
+}
+impl<P: EuclideanSpace> OffsetBox<P> {
+    #[inline]
+    pub fn new(origin: P, dims: P::Diff) -> OffsetBox<P> {
+        OffsetBox{ origin, dims }
+    }
+}
+impl<P: EuclideanSpace> BoundBox<P> {
+    #[inline]
+    pub fn new(min: P, max: P) -> BoundBox<P> {
+        BoundBox{ min, max }
+    }
+}
+
 inherent_impl_dims_offset!(Point1, Vector1; new1; origin_x, width);
 inherent_impl_dims_offset!(Point2, Vector2; new2; origin_x, width, origin_y, height);
 inherent_impl_dims_offset!(Point3, Vector3; new3; origin_x, width, origin_y, height, origin_z, depth);
