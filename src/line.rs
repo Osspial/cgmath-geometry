@@ -230,6 +230,13 @@ impl<P> Linear for Line<P>
     fn end(&self) -> Option<P> {None}
 }
 
+impl<P: EuclideanSpace> Segment<P> {
+    #[inline]
+    pub fn new(start: P, end: P) -> Segment<P> {
+        Segment{ start, end }
+    }
+}
+
 macro_rules! inherent_impl_segment {
     ($PointN:ident, $VectorN:ident; $new:ident; ($($start:ident),+), ($($end:ident),+)) => {
         impl<S: BaseScalarGeom> Segment<$PointN<S>> {
