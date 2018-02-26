@@ -271,7 +271,7 @@ macro_rules! inherent_impl_dims_offset {
 
         impl<S: BaseScalarGeom> OffsetBox<$PointN<S>> {
             #[inline]
-            pub fn $new($($origin: S, $dim: S),+) -> OffsetBox<$PointN<S>> {
+            pub fn $new($($origin: S,)+ $($dim: S),+) -> OffsetBox<$PointN<S>> {
                 OffsetBox {
                     origin: $PointN::new($($origin),+),
                     dims: $VectorN::new($($dim),+)
