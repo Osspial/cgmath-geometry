@@ -1,5 +1,5 @@
 #![feature(specialization)]
-extern crate cgmath;
+pub extern crate cgmath;
 extern crate num_traits;
 
 macro_rules! P {
