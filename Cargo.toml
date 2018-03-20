@@ -4,5 +4,5 @@ version = "0.1.0"
 authors = ["Osspial <osspial@gmail.com>"]
 
 [dependencies]
-cgmath = { git = "https://github.com/brendanzab/cgmath.git" }
+cgmath = { path = "./cgmath", version="0.16" }
 num-traits = "0.1"
