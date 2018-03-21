@@ -4,5 +4,5 @@ version = "0.1.0"
 authors = ["Osspial <osspial@gmail.com>"]
 
 [dependencies]
-cgmath = { path = "./cgmath", version="0.16" }
+cgmath = "0.16.1"
 num-traits = "0.1"
