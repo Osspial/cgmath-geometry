@@ -19,21 +19,27 @@ use std::cmp::{Ordering, PartialEq, Eq};
 use std::ops::Mul;
 use rect::{BoundBox, GeoBox};
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature="serde", derive(Deserialize, Serialize))]
 pub struct Ray<P: EuclideanSpace> {
     pub origin: P,
     pub dir: P::Diff
 }
 
 // Eq and PartialEq manually implemented
+#[repr(C)]
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature="serde", derive(Deserialize, Serialize))]
 pub struct Segment<P: EuclideanSpace> {
     pub start: P,
     pub end: P
 }
 
 // Eq and PartialEq manually implemented
+#[repr(C)]
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature="serde", derive(Deserialize, Serialize))]
 pub struct Line<P: EuclideanSpace> {
     pub origin: P,
     pub dir: P::Diff

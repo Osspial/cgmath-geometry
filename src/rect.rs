@@ -20,18 +20,24 @@ use line::{Linear, Segment};
 use std::ops::{Add, Sub};
 use num_traits::{Bounded, NumCast, ToPrimitive};
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature="serde", derive(Deserialize, Serialize))]
 pub struct DimsBox<P: EuclideanSpace> {
     pub dims: P::Diff
 }
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature="serde", derive(Deserialize, Serialize))]
 pub struct OffsetBox<P: EuclideanSpace> {
     pub origin: P,
     pub dims: P::Diff
 }
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature="serde", derive(Deserialize, Serialize))]
 pub struct BoundBox<P: EuclideanSpace> {
     pub min: P,
     pub max: P

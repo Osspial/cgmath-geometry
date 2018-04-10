@@ -16,6 +16,7 @@ use cgmath::*;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature="serde", derive(Deserialize, Serialize))]
 pub struct Polar2<A: Angle> {
     /// Polar Angle (theta).
     pub t: A,
@@ -24,6 +25,7 @@ pub struct Polar2<A: Angle> {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature="serde", derive(Deserialize, Serialize))]
 pub struct Polar3<A: Angle> {
     /// Polar Angle (theta), along XY plane.
     pub t: A,

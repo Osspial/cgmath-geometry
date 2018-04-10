@@ -16,6 +16,10 @@
 pub extern crate cgmath;
 extern crate num_traits;
 
+#[macro_use]
+#[cfg(feature="serde")]
+extern crate serde;
+
 macro_rules! P {
     ($($t:tt)*) => (<P as EuclideanSpace>$($t)*);
 }
