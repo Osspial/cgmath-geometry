@@ -52,44 +52,44 @@ pub trait GeoBox {
 
     #[inline]
     fn min(&self) -> Self::Point {
-        self.max() - self.dims()
+        self.max() - self.dims().dims
     }
 
     #[inline]
     fn max(&self) -> Self::Point {
-        self.min() + self.dims()
+        self.min() + self.dims().dims
     }
 
     #[inline]
-    fn dims(&self) -> Self::Vector {
-        self.max() - self.min()
+    fn dims(&self) -> DimsBox<Self::Point> {
+        DimsBox::new(self.max() - self.min())
     }
 
     #[inline]
     fn width(&self) -> Self::Scalar {
         match Self::Point::len() >= 1 {
-            true => self.dims()[0],
+            true => self.dims().dims[0],
             false => Self::Scalar::zero()
         }
     }
     #[inline]
     fn height(&self) -> Self::Scalar {
         match Self::Point::len() >= 2 {
-            true => self.dims()[1],
+            true => self.dims().dims[1],
             false => Self::Scalar::zero()
         }
     }
     #[inline]
     fn depth(&self) -> Self::Scalar {
         match Self::Point::len() >= 3 {
-            true => self.dims()[2],
+            true => self.dims().dims[2],
             false => Self::Scalar::zero()
         }
     }
 
     #[inline]
     fn center(&self) -> Self::Point {
-        self.min() + (self.dims() / (Self::Scalar::one() + Self::Scalar::one()))
+        self.min() + (self.dims().dims / (Self::Scalar::one() + Self::Scalar::one()))
     }
 
     #[inline]
@@ -383,7 +383,7 @@ impl<P> GeoBox for DimsBox<P>
     #[inline]
     fn min(&self) -> P {P::from_value(P::Scalar::zero())}
     #[inline]
-    fn dims(&self) -> P::Diff {self.dims}
+    fn dims(&self) -> DimsBox<Self::Point> {*self}
 }
 
 impl<P> Bounded for DimsBox<P>
@@ -426,7 +426,7 @@ impl<P> GeoBox for OffsetBox<P>
     #[inline]
     fn min(&self) -> P {self.origin}
     #[inline]
-    fn dims(&self) -> P::Diff {self.dims}
+    fn dims(&self) -> DimsBox<P> {DimsBox::new(self.dims)}
 }
 
 impl<P> GeoBox for BoundBox<P>
