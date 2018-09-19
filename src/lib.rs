@@ -63,6 +63,12 @@ pub trait Intersect<RHS=Self> {
     fn intersect(self, rhs: RHS) -> Intersection<Self::Intersection>;
 }
 
+pub trait Dimensionality {
+    type Scalar: BaseScalarGeom;
+    type Point: EuclideanSpace<Scalar=Self::Scalar, Diff=Self::Vector> + ElementWise<Self::Scalar> + MulDiv<Self::Scalar>;
+    type Vector: VectorSpace<Scalar=Self::Scalar> + Array<Element=Self::Scalar> + MulDiv + MulDiv<Self::Scalar> + ElementWise;
+}
+
 impl<I> Into<Option<I>> for Intersection<I> {
     #[inline]
     fn into(self) -> Option<I> {
@@ -87,30 +93,6 @@ fn cmp_max<S: BaseNum>(l: S, r: S) -> S {
     } else {
         r
     }
-}
-
-macro_rules! impl_mul_div_array_default {
-    ($($array:ident),*) => ($(
-        impl<S: BaseNum + MulDiv> MulDiv for $array<S> {
-            #[inline(always)]
-            default fn mul_div(mut self, mul: $array<S>, div: $array<S>) -> $array<S> {
-                for i in 0..$array::<S>::len() {
-                    self[i] = self[i].mul_div(mul[i], div[i]);
-                }
-                self
-            }
-        }
-
-        impl<S: BaseNum + MulDiv> MulDiv<S> for $array<S> {
-            #[inline(always)]
-            default fn mul_div(mut self, mul: S, div: S) -> $array<S> {
-                for i in 0..$array::<S>::len() {
-                    self[i] = self[i].mul_div(mul, div);
-                }
-                self
-            }
-        }
-    )*)
 }
 
 macro_rules! impl_mul_div_array_int {
@@ -274,8 +256,6 @@ impl_abs_dist_int! {
     // impl i64 => u64;
     // impl u64 => u64;
 }
-
-impl_mul_div_array_default!(Point1, Point2, Point3, Vector1, Vector2, Vector3, Vector4);
 
 impl_mul_div_float! {
     impl f32;

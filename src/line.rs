@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use Dimensionality;
 use {MulDiv, BaseScalarGeom, Intersect, Intersection, AbsDistance};
 use cgmath::*;
 use num_traits::{Bounded, Float, Signed};
@@ -22,18 +23,18 @@ use rect::{BoundBox, GeoBox};
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature="serde", derive(Deserialize, Serialize))]
-pub struct Ray<P: EuclideanSpace> {
-    pub origin: P,
-    pub dir: P::Diff
+pub struct Ray<D: Dimensionality> {
+    pub origin: D::Point,
+    pub dir: D::Vector
 }
 
 // Eq and PartialEq manually implemented
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature="serde", derive(Deserialize, Serialize))]
-pub struct Segment<P: EuclideanSpace> {
-    pub start: P,
-    pub end: P
+pub struct Segment<D: Dimensionality> {
+    pub start: D::Point,
+    pub end: D::Point
 }
 
 // Eq and PartialEq manually implemented
@@ -45,33 +46,37 @@ pub struct Line<P: EuclideanSpace> {
     pub dir: P::Diff
 }
 
-pub trait Linear {
-    type Scalar: BaseScalarGeom;
-    type Point: EuclideanSpace<Scalar=Self::Scalar, Diff=Self::Vector> + ElementWise<Self::Scalar> + MulDiv<Self::Scalar>;
-    type Vector: VectorSpace<Scalar=Self::Scalar> + Array<Element=Self::Scalar> + MulDiv + MulDiv<Self::Scalar> + ElementWise;
+macro_rules! d {
+    ($($t:tt)*) => {
+        <Self::D as Dimensionality>::$($t)*
+    };
+}
 
-    fn origin(&self) -> Self::Point;
-    fn dir(&self) -> Self::Vector;
+pub trait Linear {
+    type D: Dimensionality;
+
+    fn origin(&self) -> d!(Point);
+    fn dir(&self) -> d!(Vector);
     #[inline]
-    fn dir_recip(&self) -> Self::Vector
-        where Self::Scalar: Float
+    fn dir_recip(&self) -> d!(Vector)
+        where d!(Scalar): Float
     {
         let mut d = self.dir();
-        for i in 0..Self::Vector::len() {
+        for i in 0..d!(Vector::len()) {
             d[i] = d[i].recip();
         }
         d
     }
-    fn start(&self) -> Option<Self::Point>;
-    fn end(&self) -> Option<Self::Point>;
+    fn start(&self) -> Option<d!(Point)>;
+    fn end(&self) -> Option<d!(Point)>;
 
-    fn bounding_box(&self) -> BoundBox<Self::Point> {
+    fn bounding_box(&self) -> BoundBox<d!(Point)> {
         let l = self.start().expect("Manual bounding box impl required");
         let r = self.end().expect("Manual bounding box impl required");
 
-        let mut min = Self::Point::from_value(Self::Scalar::zero());
+        let mut min = d!(Point::from_value(d!(Scalar::zero())));
         let mut max = min;
-        for i in 0..Self::Point::len() {
+        for i in 0..d!(Point::len()) {
             min[i] = ::cmp_min(l[i], r[i]);
             max[i] = ::cmp_max(l[i], r[i]);
         }
@@ -79,29 +84,29 @@ pub trait Linear {
         BoundBox::from_bounds(min, max)
     }
 
-    fn clip_to_scalar_bounds(&self) -> Segment<Self::Point> {
+    fn clip_to_scalar_bounds(&self) -> Segment<d!(Point)> {
         let origin = self.origin();
         let dir = self.dir();
-        let zero = Self::Scalar::zero();
+        let zero = d!(Scalar::zero());
 
         // to_end is whether to project to the end of the line (along the direction vector) or to
         // the start of the line (against the direction vector). Changing that changes some
         // comparisons.
         let project = |to_end: bool| {
             let mut axis_closest = usize::max_value();
-            let mut axis_closest_threshold = Self::Scalar::max_value().to_abs();
+            let mut axis_closest_threshold = d!(Scalar::max_value().to_abs());
             let mut axis_closest_muldiv = (zero.to_abs(), zero.to_abs());
 
-            for i in 0..Self::Point::len() {
+            for i in 0..d!(Point::len()) {
                 let dir_cmp = match to_end {
                     true => dir[i].partial_cmp(&zero),
                     false => zero.partial_cmp(&dir[i])
                 };
                 let axis_dist = match dir_cmp {
-                    Some(Ordering::Less) => origin[i].abs_distance(Self::Scalar::min_value()),
-                    Some(Ordering::Greater) => origin[i].abs_distance(Self::Scalar::max_value()),
+                    Some(Ordering::Less) => origin[i].abs_distance(d!(Scalar::min_value())),
+                    Some(Ordering::Greater) => origin[i].abs_distance(d!(Scalar::max_value())),
                     Some(Ordering::Equal) |
-                    None                 => Self::Scalar::max_value().to_abs()
+                    None                 => d!(Scalar::max_value().to_abs())
                 };
 
                 let axis_threshold = axis_dist / dir[i].to_abs();
@@ -116,7 +121,7 @@ pub trait Linear {
                 panic!("direction equal to zero");
             } else {
                 let mut origin_projected = origin;
-                for i in 0..Self::Point::len() {
+                for i in 0..d!(Point::len()) {
                     let dir_mul_div = dir[i].to_abs().mul_div(axis_closest_muldiv.0, axis_closest_muldiv.1);
                     // `... ^ !to_end` flips the sign if we're going to the start (switch add to sub, and sub to add)
                     origin_projected[i] = match (zero <= dir[i]) ^ !to_end {
@@ -135,44 +140,40 @@ pub trait Linear {
     }
 }
 
-impl<P> Linear for Ray<P>
-    where P: EuclideanSpace + ElementWise<P!(::Scalar)> + MulDiv<P!(::Scalar)>,
-          P!(::Scalar): BaseScalarGeom,
-          P::Diff: VectorSpace<Scalar=P!(::Scalar)> + Array<Element=P!(::Scalar)> + MulDiv + MulDiv<P!(::Scalar)> + ElementWise
+impl<D> Linear for Ray<D>
+    where D: Dimensionality
 {
-    type Scalar = P::Scalar;
-    type Point = P;
-    type Vector = P::Diff;
+    type D = D;
 
     #[inline]
-    fn origin(&self) -> P {self.origin}
+    fn origin(&self) -> D::Point {self.origin}
     #[inline]
-    fn dir(&self) -> P::Diff {self.dir}
+    fn dir(&self) -> D::Vector {self.dir}
     #[inline]
-    fn start(&self) -> Option<P> {
+    fn start(&self) -> Option<D::Point> {
         Some(self.origin)
     }
     #[inline]
-    fn end(&self) -> Option<P> {
+    fn end(&self) -> Option<D::Point> {
         None
     }
 
     #[inline]
-    default fn bounding_box(&self) -> BoundBox<P> {
-        let mut outer_bound = Self::Point::from_vec(self.dir());
-        for i in 0..Self::Point::len() {
-            outer_bound[i] = match outer_bound[i].partial_cmp(&Self::Scalar::zero()) {
-                Some(Ordering::Less) => Self::Scalar::min_value(),
-                Some(Ordering::Greater) => Self::Scalar::max_value(),
+    default fn bounding_box(&self) -> BoundBox<D::Point> {
+        let mut outer_bound = D::Point::from_vec(self.dir());
+        for i in 0..D::Point::len() {
+            outer_bound[i] = match outer_bound[i].partial_cmp(&D::Scalar::zero()) {
+                Some(Ordering::Less) => D::Scalar::min_value(),
+                Some(Ordering::Greater) => D::Scalar::max_value(),
                 None |
                 Some(Ordering::Equal) => self.origin[i],
             };
         }
 
         let (l, r) = (self.origin, outer_bound);
-        let mut min = Self::Point::from_value(Self::Scalar::zero());
+        let mut min = D::Point::from_value(D::Scalar::zero());
         let mut max = min;
-        for i in 0..Self::Point::len() {
+        for i in 0..D::Point::len() {
             min[i] = ::cmp_min(l[i], r[i]);
             max[i] = ::cmp_max(l[i], r[i]);
         }
@@ -181,19 +182,18 @@ impl<P> Linear for Ray<P>
     }
 }
 
-impl<P> Linear for Ray<P>
-    where P: EuclideanSpace + ElementWise<P!(::Scalar)> + MulDiv<P!(::Scalar)>,
-          P!(::Scalar): BaseScalarGeom + BaseFloat,
-          P::Diff: VectorSpace<Scalar=P!(::Scalar)> + Array<Element=P!(::Scalar)> + MulDiv + MulDiv<P!(::Scalar)> + ElementWise + ElementWise<P!(::Scalar)>
+impl<D> Linear for Ray<D>
+    where D: Dimensionality,
+          D::Scalar: BaseFloat
 {
     #[inline]
     fn bounding_box(&self) -> BoundBox<P> {
-        let outer_bound = Self::Point::from_vec(self.dir()).mul_element_wise(Self::Scalar::infinity());
+        let outer_bound = D::Point::from_vec(self.dir()).mul_element_wise(D::Scalar::infinity());
 
         let (l, r) = (self.origin, outer_bound);
-        let mut min = Self::Point::from_value(Self::Scalar::zero());
+        let mut min = D::Point::from_value(D::Scalar::zero());
         let mut max = min;
-        for i in 0..Self::Point::len() {
+        for i in 0..D::Point::len() {
             min[i] = ::cmp_min(l[i], r[i]);
             max[i] = ::cmp_max(l[i], r[i]);
         }
@@ -202,29 +202,25 @@ impl<P> Linear for Ray<P>
     }
 }
 
-impl<P> Linear for Segment<P>
-    where P: EuclideanSpace + ElementWise<P!(::Scalar)> + MulDiv<P!(::Scalar)>,
-          P!(::Scalar): BaseScalarGeom,
-          P::Diff: VectorSpace<Scalar=P!(::Scalar)> + Array<Element=P!(::Scalar)> + MulDiv + MulDiv<P!(::Scalar)> + ElementWise
+impl<D> Linear for Segment<D>
+    where D: Dimensionality
 {
-    type Scalar = P::Scalar;
-    type Point = P;
-    type Vector = P::Diff;
+    type D = D;
 
     #[inline]
-    fn origin(&self) -> P {
+    fn origin(&self) -> D::Point {
         self.start
     }
     #[inline]
-    fn dir(&self) -> P::Diff {
+    fn dir(&self) -> D::Vector {
         self.end - self.start
     }
     #[inline]
-    fn start(&self) -> Option<P> {
+    fn start(&self) -> Option<D::Point> {
         Some(self.start)
     }
     #[inline]
-    fn end(&self) -> Option<P> {
+    fn end(&self) -> Option<D::Point> {
         Some(self.end)
     }
 }
@@ -300,7 +296,7 @@ impl<L, R> Intersect<R> for L
           L: Linear<Point=Point2<<L as Linear>::Scalar>, Vector=Vector2<<L as Linear>::Scalar>>
 {
     type Intersection = Point2<L::Scalar>;
-    default fn intersect(self, rhs: R) -> Intersection<Point2<L::Scalar>> {
+    fn intersect(self, rhs: R) -> Intersection<Point2<L::Scalar>> {
         let (lo, ro) = (self.origin(), rhs.origin());
         let (ld, rd) = (self.dir(), rhs.dir());
         let slope_diff = rd.y*ld.x - rd.x*ld.y;

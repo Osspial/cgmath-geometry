@@ -68,7 +68,9 @@ pub trait Circle: Ellipse {
 }
 
 impl<S> Ellipse for Circle2<S>
-    where S: BaseFloat + MulDiv
+    where S: BaseFloat + MulDiv,
+          Vector2<S>: MulDiv + MulDiv<S>,
+          Point2<S>: MulDiv + MulDiv<S>
 {
     type Scalar = S;
     type Point = Point2<S>;
@@ -92,10 +94,14 @@ impl<S> Ellipse for Circle2<S>
     }
 }
 impl<S> Circle for Circle2<S>
-    where S: BaseScalarGeom + BaseFloat {}
+    where S: BaseScalarGeom + BaseFloat,
+          Vector2<S>: MulDiv + MulDiv<S>,
+          Point2<S>: MulDiv + MulDiv<S> {}
 
 impl<S> Ellipse for Ellipse2<S>
-    where S: BaseScalarGeom + BaseFloat
+    where S: BaseScalarGeom + BaseFloat,
+          Vector2<S>: MulDiv + MulDiv<S>,
+          Point2<S>: MulDiv + MulDiv<S>
 {
     type Scalar = S;
     type Point = Point2<S>;
