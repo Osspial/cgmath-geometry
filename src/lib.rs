@@ -20,20 +20,23 @@ extern crate num_traits;
 #[cfg(feature="serde")]
 extern crate serde;
 
-macro_rules! P {
-    ($($t:tt)*) => (<P as EuclideanSpace>$($t)*);
+macro_rules! d {
+    ($($t:tt)*) => {
+        <Self::D as Dimensionality>::$($t)*
+    };
 }
 
-pub mod ellipse;
+// pub mod ellipse;
 pub mod line;
 pub mod polar;
 pub mod rect;
 
-pub use self::ellipse::*;
+// pub use self::ellipse::*;
 pub use self::rect::*;
 pub use self::line::*;
 
 use cgmath::*;
+use std::ops::{Add, Sub};
 
 pub trait MulDiv<Rhs = Self> {
     fn mul_div(self, mul: Rhs, div: Rhs) -> Self;
@@ -65,8 +68,32 @@ pub trait Intersect<RHS=Self> {
 
 pub trait Dimensionality {
     type Scalar: BaseScalarGeom;
-    type Point: EuclideanSpace<Scalar=Self::Scalar, Diff=Self::Vector> + ElementWise<Self::Scalar> + MulDiv<Self::Scalar>;
+    type Point:
+          EuclideanSpace<Scalar=Self::Scalar, Diff=Self::Vector>
+        + ElementWise<Self::Scalar>
+        + MulDiv<Self::Scalar>
+        + Add<Self::Vector, Output=Self::Point>
+        + Sub<Self::Vector, Output=Self::Point>;
     type Vector: VectorSpace<Scalar=Self::Scalar> + Array<Element=Self::Scalar> + MulDiv + MulDiv<Self::Scalar> + ElementWise;
+}
+
+pub struct D1<S: BaseScalarGeom>(S);
+pub struct D2<S: BaseScalarGeom>(S);
+pub struct D3<S: BaseScalarGeom>(S);
+impl<S: BaseScalarGeom> Dimensionality for D1<S> {
+    type Scalar = S;
+    type Point = Point1<S>;
+    type Vector = Vector1<S>;
+}
+impl<S: BaseScalarGeom> Dimensionality for D2<S> {
+    type Scalar = S;
+    type Point = Point2<S>;
+    type Vector = Vector2<S>;
+}
+impl<S: BaseScalarGeom> Dimensionality for D3<S> {
+    type Scalar = S;
+    type Point = Point3<S>;
+    type Vector = Vector3<S>;
 }
 
 impl<I> Into<Option<I>> for Intersection<I> {
@@ -93,6 +120,30 @@ fn cmp_max<S: BaseNum>(l: S, r: S) -> S {
     } else {
         r
     }
+}
+
+macro_rules! impl_mul_div_array_default {
+    ($($array:ident),*) => ($(
+        impl<S: BaseNum + MulDiv> MulDiv for $array<S> {
+            #[inline(always)]
+            default fn mul_div(mut self, mul: $array<S>, div: $array<S>) -> $array<S> {
+                for i in 0..$array::<S>::len() {
+                    self[i] = self[i].mul_div(mul[i], div[i]);
+                }
+                self
+            }
+        }
+
+        impl<S: BaseNum + MulDiv> MulDiv<S> for $array<S> {
+            #[inline(always)]
+            default fn mul_div(mut self, mul: S, div: S) -> $array<S> {
+                for i in 0..$array::<S>::len() {
+                    self[i] = self[i].mul_div(mul, div);
+                }
+                self
+            }
+        }
+    )*)
 }
 
 macro_rules! impl_mul_div_array_int {
@@ -261,3 +312,5 @@ impl_mul_div_float! {
     impl f32;
     impl f64;
 }
+
+impl_mul_div_array_default!(Point1, Point2, Point3, Vector1, Vector2, Vector3, Vector4);
