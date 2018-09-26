@@ -36,7 +36,8 @@ pub use self::rect::*;
 pub use self::line::*;
 
 use cgmath::*;
-use std::ops::{Add, Sub};
+use std::ops::{Add, Sub, Mul, Div, Rem};
+use std::iter::Sum;
 
 pub trait MulDiv<Rhs = Self> {
     fn mul_div(self, mul: Rhs, div: Rhs) -> Self;
@@ -71,10 +72,12 @@ pub trait Dimensionality {
     type Point:
           EuclideanSpace<Scalar=Self::Scalar, Diff=Self::Vector>
         + ElementWise<Self::Scalar>
-        + MulDiv<Self::Scalar>
-        + Add<Self::Vector, Output=Self::Point>
-        + Sub<Self::Vector, Output=Self::Point>;
-    type Vector: VectorSpace<Scalar=Self::Scalar> + Array<Element=Self::Scalar> + MulDiv + MulDiv<Self::Scalar> + ElementWise;
+        + MulDiv<Self::Scalar>;
+    type Vector:
+          VectorSpace<Scalar=Self::Scalar>
+        + Array<Element=Self::Scalar>
+        + MulDiv
+        + MulDiv<Self::Scalar>;
 }
 
 pub struct D1<S: BaseScalarGeom>(S);

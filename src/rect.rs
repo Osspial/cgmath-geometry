@@ -513,8 +513,8 @@ impl<D> Add<D::Vector> for BoundBox<D>
     type Output = Self;
     #[inline]
     fn add(mut self, rhs: D::Vector) -> BoundBox<D> {
-        self.min = d!(Point::add(self.min, rhs));
-        self.max = d!(Point::add(self.max, rhs));
+        self.min = self.min + rhs;
+        self.max = self.max + rhs;
         self
     }
 }
@@ -525,8 +525,8 @@ impl<D> Sub<D::Vector> for BoundBox<D>
     type Output = Self;
     #[inline]
     fn sub(mut self, rhs: D::Vector) -> BoundBox<D> {
-        self.min = d!(Point::sub(self.min, rhs));
-        self.max = d!(Point::sub(self.max, rhs));
+        self.min = D::Point::sub(self.min, rhs);
+        self.max = D::Point::sub(self.max, rhs);
         self
     }
 }
