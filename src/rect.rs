@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use {MulDiv, BaseScalarGeom, AbsDistance, Dimensionality, D1, D2, D3};
+use {MulDiv, BaseScalarGeom, AbsDistance, BasePointGeom, BaseVectorGeom, Dimensionality, D1, D2, D3};
 use cgmath::*;
 
 use line::{Linear, Segment};
@@ -43,14 +43,17 @@ pub struct BoundBox<D: Dimensionality> {
     pub max: D::Point
 }
 
-pub trait GeoBox {
+pub trait GeoBox
+    where <Self::D as Dimensionality>::Vector: VectorSpace<Scalar=<Self::D as Dimensionality>::Scalar>,
+          <Self::D as Dimensionality>::Point: EuclideanSpace<Diff=<Self::D as Dimensionality>::Vector>
+{
     type D: Dimensionality;
 
     fn from_bounds(min: d!(Point), max: d!(Point)) -> Self;
 
     #[inline]
     fn min(&self) -> d!(Point) {
-        d!(Point::sub(self.max(), self.dims().dims))
+        self.max() - self.dims().dims
     }
 
     #[inline]
@@ -87,7 +90,7 @@ pub trait GeoBox {
 
     #[inline]
     fn center(&self) -> d!(Point) {
-        d!(Point::add(self.min(), self.dims().dims / (d!(Scalar::one()) + d!(Scalar::one()))))
+        self.min() + self.dims().dims / (d!(Scalar::one()) + d!(Scalar::one()))
     }
 
     #[inline]
@@ -129,141 +132,140 @@ pub trait GeoBox {
         where L: Linear<D=Self::D>,
               d!(Scalar): Bounded
     {
-        unimplemented!()
-        // macro_rules! switch_fn {
-        //     ($name:ident) => {
-        //         fn $name<R, L>(rect: &R, line: L) -> (Option<R::Point>, Option<R::Point>)
-        //             where R: GeoBox<Scalar=S> + ?Sized,
-        //                   R::Point: EuclideanSpace<Scalar=S, Diff=R::Vector> + ElementWise<S> + MulDiv<S>,
-        //                   R::Vector: VectorSpace<Scalar=S> + Array<Element=S> + MulDiv + MulDiv<S>,
-        //                   L: Linear<Scalar=R::Scalar, Point=R::Point, Vector=R::Vector>;
-        //     };
-        //     ($({$prefix:tt})* $name:ident($rect:ident, $line:ident), $body:block) => {
-        //         $($prefix)* fn $name<R, L>($rect: &R, $line: L) -> (Option<R::Point>, Option<R::Point>)
-        //             where R: GeoBox<Scalar=S> + ?Sized,
-        //                   R::Point: EuclideanSpace<Scalar=S, Diff=R::Vector> + ElementWise<S> + MulDiv<S>,
-        //                   R::Vector: VectorSpace<Scalar=S> + Array<Element=S> + MulDiv + MulDiv<S>,
-        //                   L: Linear<Scalar=R::Scalar, Point=R::Point, Vector=R::Vector>
-        //         $body
-        //     }
-        // }
-        // struct TS;
-        // trait TypeSwitch<S>
-        //     where S: BaseNum + MulDiv + Bounded + AbsDistance
-        // {
-        //     switch_fn!{intersect_ts}
-        // }
+        struct TS;
+        trait TypeSwitch<S>
+            where S: BaseScalarGeom
+        {
+            fn intersect_ts<D, R, L>(rect: &R, line: L) -> (Option<D::Point>, Option<D::Point>)
+                    where D: Dimensionality<Scalar=S>,
+                          D::Vector: BaseVectorGeom<D=D>,// VectorSpace<Scalar=D::Scalar>,
+                          D::Point: BasePointGeom<D=D>,// EuclideanSpace<Diff=D::Vector>,
+                          R: GeoBox<D=D> + ?Sized,
+                          L: Linear<D=D>;
+        }
 
-        // impl<S> TypeSwitch<S> for TS
-        //     where S: BaseFloat + BaseNum + MulDiv + Bounded + AbsDistance
-        // {
-        //     switch_fn!{intersect_ts(rect, line), {
-        //         let line_origin = line.origin();
-        //         let dir = line.dir();
-        //         let dir_recip = line.dir_recip();
-        //         let (rect_min, rect_max) = (rect.min(), rect.max());
+        impl<S> TypeSwitch<S> for TS
+            where S: BaseFloat + BaseScalarGeom
+        {
+            fn intersect_ts<D, R, L>(rect: &R, line: L) -> (Option<D::Point>, Option<D::Point>)
+                    where D: Dimensionality<Scalar=S>,
+                          D::Vector: VectorSpace<Scalar=D::Scalar>,
+                          D::Point: EuclideanSpace<Diff=D::Vector>,
+                          R: GeoBox<D=D> + ?Sized,
+                          L: Linear<D=D>
+            {
+                let line_origin = line.origin();
+                let dir = line.dir();
+                let dir_recip = line.dir_recip();
+                let (rect_min, rect_max) = (rect.min(), rect.max());
 
-        //         let (mut t_min, mut t_max) = (S::neg_infinity(), S::infinity());
+                let (mut t_min, mut t_max) = (S::neg_infinity(), S::infinity());
 
-        //         for i in 0..L::Point::len() {
-        //             let t_enter = (rect_min[i] - line_origin[i]) * dir_recip[i];
-        //             let t_exit = (rect_max[i] - line_origin[i]) * dir_recip[i];
-        //             t_min = t_min.max(t_enter.min(t_exit));
-        //             t_max = t_max.min(t_enter.max(t_exit));
-        //         }
+                for i in 0..D::Point::len() {
+                    let t_enter = (rect_min[i] - line_origin[i]) * dir_recip[i];
+                    let t_exit = (rect_max[i] - line_origin[i]) * dir_recip[i];
+                    t_min = t_min.max(t_enter.min(t_exit));
+                    t_max = t_max.min(t_enter.max(t_exit));
+                }
 
-        //         if t_max < t_min {
-        //             (None, None)
-        //         } else {
-        //             let t_of_point = |point: L::Point| {
-        //                 let mut t = S::zero();
-        //                 for i in 0..L::Point::len() {
-        //                     let t_axis = (point[i] - line_origin[i]) * dir_recip[i];
-        //                     if t_axis.abs() > t.abs() {
-        //                         t = t_axis;
-        //                     }
-        //                 }
-        //                 t
-        //             };
-        //             let t_enter = match line.start() {
-        //                 None => Some(t_min),
-        //                 Some(start) => match t_min >= t_of_point(start) {
-        //                     true => Some(t_min),
-        //                     false => None
-        //                 }
-        //             };
-        //             let t_exit = match line.end() {
-        //                 None => Some(t_max),
-        //                 Some(end) => match t_max <= t_of_point(end) {
-        //                     true => Some(t_max),
-        //                     false => None
-        //                 }
-        //             };
-        //             (t_enter.map(|t| line_origin + dir * t), t_exit.map(|t| line_origin + dir * t))
-        //         }
-        //     }}
-        // }
+                if t_max < t_min {
+                    (None, None)
+                } else {
+                    let t_of_point = |point: D::Point| {
+                        let mut t = S::zero();
+                        for i in 0..D::Point::len() {
+                            let t_axis = (point[i] - line_origin[i]) * dir_recip[i];
+                            if t_axis.abs() > t.abs() {
+                                t = t_axis;
+                            }
+                        }
+                        t
+                    };
+                    let t_enter = match line.start() {
+                        None => Some(t_min),
+                        Some(start) => match t_min >= t_of_point(start) {
+                            true => Some(t_min),
+                            false => None
+                        }
+                    };
+                    let t_exit = match line.end() {
+                        None => Some(t_max),
+                        Some(end) => match t_max <= t_of_point(end) {
+                            true => Some(t_max),
+                            false => None
+                        }
+                    };
+                    (t_enter.map(|t| line_origin + dir * t), t_exit.map(|t| line_origin + dir * t))
+                }
+            }
+        }
 
-        // impl<S> TypeSwitch<S> for TS
-        //     where S: BaseNum + MulDiv + Bounded + AbsDistance
-        // {
-        //     switch_fn!{{default} intersect_ts(rect, line), {
-        //         let zero = L::Scalar::zero();
-        //         let min = rect.min();
-        //         let max = rect.max();
+        impl<S> TypeSwitch<S> for TS
+            where S: BaseScalarGeom
+        {
+            default fn intersect_ts<D, R, L>(rect: &R, line: L) -> (Option<D::Point>, Option<D::Point>)
+                    where D: Dimensionality<Scalar=S>,
+                          D::Vector: VectorSpace<Scalar=D::Scalar>,
+                          D::Point: EuclideanSpace<Diff=D::Vector>,
+                          R: GeoBox<D=D> + ?Sized,
+                          L: Linear<D=D>
+            {
+                let zero = D::Scalar::zero();
+                let min = rect.min();
+                let max = rect.max();
 
-        //         let Segment{ start, end } = line.clip_to_scalar_bounds();
-        //         let (mut enter, mut exit) = (start, end);
-        //         let (mut enter_valid, mut exit_valid) = (false, false);
-        //         let dir = line.dir();
+                let Segment{ start, end } = line.clip_to_scalar_bounds();
+                let (mut enter, mut exit) = (start, end);
+                let (mut enter_valid, mut exit_valid) = (false, false);
+                let dir = line.dir();
 
-        //         for i in 0..R::Point::len() {
-        //             if enter[i] <= exit[i] {
-        //                 if enter[i] <= min[i] && min[i] <= exit[i] && dir[i] != zero {
-        //                     enter = enter + dir.mul_div(min[i] - enter[i], dir[i]);
-        //                     enter_valid = true;
-        //                 }
+                for i in 0..D::Point::len() {
+                    if enter[i] <= exit[i] {
+                        if enter[i] <= min[i] && min[i] <= exit[i] && dir[i] != zero {
+                            enter = enter + dir.mul_div(min[i] - enter[i], dir[i]);
+                            enter_valid = true;
+                        }
 
-        //                 if enter[i] <= max[i] && max[i] < exit[i] && dir[i] != zero {
-        //                     exit = exit - dir.mul_div(exit[i] - max[i], dir[i]);
-        //                     exit_valid = true;
-        //                 }
-        //             } else {
-        //                 if exit[i] <= max[i] && max[i] <= enter[i] && dir[i] != zero {
-        //                     enter = enter - dir.mul_div(enter[i] - max[i], dir[i]);
-        //                     enter_valid = true;
-        //                 }
+                        if enter[i] <= max[i] && max[i] < exit[i] && dir[i] != zero {
+                            exit = exit - dir.mul_div(exit[i] - max[i], dir[i]);
+                            exit_valid = true;
+                        }
+                    } else {
+                        if exit[i] <= max[i] && max[i] <= enter[i] && dir[i] != zero {
+                            enter = enter - dir.mul_div(enter[i] - max[i], dir[i]);
+                            enter_valid = true;
+                        }
 
-        //                 if exit[i] < min[i] && min[i] <= enter[i] && dir[i] != zero {
-        //                     exit = exit + dir.mul_div(min[i] - exit[i], dir[i]);
-        //                     exit_valid = true;
-        //                 }
-        //             };
-        //         }
+                        if exit[i] < min[i] && min[i] <= enter[i] && dir[i] != zero {
+                            exit = exit + dir.mul_div(min[i] - exit[i], dir[i]);
+                            exit_valid = true;
+                        }
+                    };
+                }
 
-        //         for i in 0..R::Point::len() {
-        //             if enter[i] < min[i] || max[i] < enter[i] {
-        //                 enter_valid = false;
-        //             }
-        //             if exit[i] < min[i] || max[i] < exit[i] {
-        //                 exit_valid = false;
-        //             }
-        //         }
+                for i in 0..D::Point::len() {
+                    if enter[i] < min[i] || max[i] < enter[i] {
+                        enter_valid = false;
+                    }
+                    if exit[i] < min[i] || max[i] < exit[i] {
+                        exit_valid = false;
+                    }
+                }
 
-        //         (
-        //             match enter_valid {
-        //                 true => Some(enter),
-        //                 false => None
-        //             },
-        //             match exit_valid {
-        //                 true => Some(exit),
-        //                 false => None
-        //             }
-        //         )
-        //     }}
-        // }
+                (
+                    match enter_valid {
+                        true => Some(enter),
+                        false => None
+                    },
+                    match exit_valid {
+                        true => Some(exit),
+                        false => None
+                    }
+                )
+            }
+        }
 
-        // TS::intersect_ts(self, line)
+        TS::intersect_ts(self, line)
     }
 }
 
@@ -364,7 +366,9 @@ inherent_impl_bounds!(D2; new2; (min_x, min_y), (max_x, max_y));
 inherent_impl_bounds!(D3; new3; (min_x, min_y, min_z), (max_x, max_y, max_z));
 
 impl<D> GeoBox for DimsBox<D>
-    where D: Dimensionality
+    where D: Dimensionality,
+          D::Vector: VectorSpace<Scalar=D::Scalar>,
+          D::Point: EuclideanSpace<Diff=D::Vector>
 {
     type D = D;
 
@@ -378,7 +382,7 @@ impl<D> GeoBox for DimsBox<D>
     #[inline]
     fn min(&self) -> D::Point {D::Point::from_value(D::Scalar::zero())}
     #[inline]
-    fn dims(&self) -> DimsBox<D> {*self}
+    fn dims(&self) -> DimsBox<D> {DimsBox{dims: self.dims}}
 }
 
 impl<D> Bounded for DimsBox<D>
@@ -401,7 +405,9 @@ impl<D> Bounded for DimsBox<D>
 }
 
 impl<D> GeoBox for OffsetBox<D>
-    where D: Dimensionality
+    where D: Dimensionality,
+          D::Vector: VectorSpace<Scalar=D::Scalar>,
+          D::Point: EuclideanSpace<Diff=D::Vector>
 {
     type D = D;
 
@@ -420,7 +426,9 @@ impl<D> GeoBox for OffsetBox<D>
 }
 
 impl<D> GeoBox for BoundBox<D>
-    where D: Dimensionality
+    where D: Dimensionality,
+          D::Vector: VectorSpace<Scalar=D::Scalar>,
+          D::Point: EuclideanSpace<Diff=D::Vector>
 {
     type D = D;
 
@@ -450,65 +458,77 @@ impl<D> From<DimsBox<D>> for OffsetBox<D>
 }
 
 impl<D> From<DimsBox<D>> for BoundBox<D>
-    where D: Dimensionality
+    where D: Dimensionality,
+          D::Vector: VectorSpace<Scalar=D::Scalar>,
+          D::Point: EuclideanSpace<Diff=D::Vector>
 {
     #[inline]
     fn from(rect: DimsBox<D>) -> BoundBox<D> {
         BoundBox {
             min: D::Point::from_value(D::Scalar::zero()),
-            max: d!(Point::from_vec(rect.dims))
+            max: D::Point::from_vec(rect.dims)
         }
     }
 }
 
 impl<D> From<OffsetBox<D>> for BoundBox<D>
-    where D: Dimensionality
+    where D: Dimensionality,
+          D::Vector: VectorSpace<Scalar=D::Scalar>,
+          D::Point: EuclideanSpace<Diff=D::Vector>
 {
     #[inline]
     fn from(rect: OffsetBox<D>) -> BoundBox<D> {
         BoundBox {
             min: rect.origin,
-            max: d!(Point::add(rect.origin, rect.dims))
+            max: D::Point::add(rect.origin, rect.dims)
         }
     }
 }
 
 impl<D> From<BoundBox<D>> for OffsetBox<D>
-    where D: Dimensionality
+    where D: Dimensionality,
+          D::Vector: VectorSpace<Scalar=D::Scalar>,
+          D::Point: EuclideanSpace<Diff=D::Vector>
 {
     #[inline]
     fn from(rect: BoundBox<D>) -> OffsetBox<D> {
         OffsetBox {
             origin: rect.min,
-            dims: d!(Point::to_vec(rect.max)) - d!(Point::to_vec(rect.min))
+            dims: D::Point::to_vec(rect.max) - D::Point::to_vec(rect.min)
         }
     }
 }
 
 impl<D> Add<D::Vector> for OffsetBox<D>
-    where D: Dimensionality
+    where D: Dimensionality,
+          D::Vector: VectorSpace<Scalar=D::Scalar>,
+          D::Point: EuclideanSpace<Diff=D::Vector>
 {
     type Output = Self;
     #[inline]
     fn add(mut self, rhs: D::Vector) -> OffsetBox<D> {
-        self.origin = d!(Point::add(self.origin, rhs));
+        self.origin = self.origin + rhs;
         self
     }
 }
 
 impl<D> Sub<D::Vector> for OffsetBox<D>
-    where D: Dimensionality
+    where D: Dimensionality,
+          D::Vector: VectorSpace<Scalar=D::Scalar>,
+          D::Point: EuclideanSpace<Diff=D::Vector>
 {
     type Output = Self;
     #[inline]
     fn sub(mut self, rhs: D::Vector) -> OffsetBox<D> {
-        self.origin = d!(Point::sub(self.origin, rhs));
+        self.origin = self.origin - rhs;
         self
     }
 }
 
 impl<D> Add<D::Vector> for BoundBox<D>
-    where D: Dimensionality
+    where D: Dimensionality,
+          D::Vector: VectorSpace<Scalar=D::Scalar>,
+          D::Point: EuclideanSpace<Diff=D::Vector>
 {
     type Output = Self;
     #[inline]
@@ -520,7 +540,9 @@ impl<D> Add<D::Vector> for BoundBox<D>
 }
 
 impl<D> Sub<D::Vector> for BoundBox<D>
-    where D: Dimensionality
+    where D: Dimensionality,
+          D::Vector: VectorSpace<Scalar=D::Scalar>,
+          D::Point: EuclideanSpace<Diff=D::Vector>
 {
     type Output = Self;
     #[inline]

@@ -27,17 +27,15 @@ macro_rules! d {
 }
 
 // pub mod ellipse;
-pub mod line;
-pub mod polar;
-pub mod rect;
+// pub mod line;
+// pub mod polar;
+// pub mod rect;
 
 // pub use self::ellipse::*;
-pub use self::rect::*;
-pub use self::line::*;
+// pub use self::rect::*;
+// pub use self::line::*;
 
 use cgmath::*;
-use std::ops::{Add, Sub, Mul, Div, Rem};
-use std::iter::Sum;
 
 pub trait MulDiv<Rhs = Self> {
     fn mul_div(self, mul: Rhs, div: Rhs) -> Self;
@@ -53,7 +51,30 @@ pub trait AbsDistance {
 }
 
 pub trait BaseScalarGeom: BaseNum + MulDiv + Bounded + AbsDistance {}
+pub trait BasePointGeom:
+          EuclideanSpace<Scalar=<<Self as BasePointGeom>::D as Dimensionality>::Scalar, Diff=<<Self as BasePointGeom>::D as Dimensionality>::Vector>
+        + ElementWise<<<Self as BasePointGeom>::D as Dimensionality>::Scalar>
+        + MulDiv<<<Self as BasePointGeom>::D as Dimensionality>::Scalar>
+    where d!(Vector): BaseVectorGeom<D=Self::D>
+{
+    type D: Dimensionality;
+}
+pub trait BaseVectorGeom:
+          VectorSpace<Scalar=<<Self as BaseVectorGeom>::D as Dimensionality>::Scalar>
+        + Array<Element=<<Self as BaseVectorGeom>::D as Dimensionality>::Scalar>
+        + MulDiv
+        + MulDiv<<<Self as BaseVectorGeom>::D as Dimensionality>::Scalar>
+{
+    type D: Dimensionality;
+}
 impl<T: BaseNum + MulDiv + Bounded + AbsDistance> BaseScalarGeom for T {}
+impl<S: BaseScalarGeom> BasePointGeom for Point1<S> { type D = D1<S>; }
+impl<S: BaseScalarGeom> BasePointGeom for Point2<S> { type D = D2<S>; }
+impl<S: BaseScalarGeom> BasePointGeom for Point3<S> { type D = D3<S>; }
+impl<S: BaseScalarGeom> BaseVectorGeom for Vector1<S> { type D = D1<S>; }
+impl<S: BaseScalarGeom> BaseVectorGeom for Vector2<S> { type D = D2<S>; }
+impl<S: BaseScalarGeom> BaseVectorGeom for Vector3<S> { type D = D3<S>; }
+// impl<S: BaseScalarGeom> BaseVectorGeom for Vector4<S> { type D = D4<S>; }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Intersection<I> {
@@ -69,15 +90,8 @@ pub trait Intersect<RHS=Self> {
 
 pub trait Dimensionality {
     type Scalar: BaseScalarGeom;
-    type Point:
-          EuclideanSpace<Scalar=Self::Scalar, Diff=Self::Vector>
-        + ElementWise<Self::Scalar>
-        + MulDiv<Self::Scalar>;
-    type Vector:
-          VectorSpace<Scalar=Self::Scalar>
-        + Array<Element=Self::Scalar>
-        + MulDiv
-        + MulDiv<Self::Scalar>;
+    type Point: BasePointGeom;
+    type Vector: BaseVectorGeom;
 }
 
 pub struct D1<S: BaseScalarGeom>(S);

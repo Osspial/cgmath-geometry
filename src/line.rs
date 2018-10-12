@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use {MulDiv, BaseScalarGeom, Intersect, Intersection, AbsDistance, Dimensionality, D1, D2, D3};
+use {MulDiv, BaseScalarGeom, Intersect, Intersection, BasePointGeom, BaseVectorGeom, AbsDistance, Dimensionality, D1, D2, D3};
 use cgmath::*;
 use num_traits::{Bounded, Float, Signed};
 use std::cmp::{Ordering, PartialEq, Eq};
@@ -45,7 +45,10 @@ pub struct Line<D: Dimensionality> {
     pub dir: D::Vector
 }
 
-pub trait Linear {
+pub trait Linear
+    where <Self::D as Dimensionality>::Vector: VectorSpace<Scalar=<Self::D as Dimensionality>::Scalar>,
+          <Self::D as Dimensionality>::Point: EuclideanSpace<Diff=<Self::D as Dimensionality>::Vector>
+{
     type D: Dimensionality;
 
     fn origin(&self) -> d!(Point);
@@ -134,7 +137,9 @@ pub trait Linear {
 }
 
 impl<D> Linear for Ray<D>
-    where D: Dimensionality
+    where D: Dimensionality,
+          D::Vector: VectorSpace<Scalar=D::Scalar>,
+          D::Point: EuclideanSpace<Diff=D::Vector>
 {
     type D = D;
 
@@ -177,7 +182,9 @@ impl<D> Linear for Ray<D>
 
 impl<D> Linear for Ray<D>
     where D: Dimensionality,
-          D::Scalar: BaseFloat
+          D::Scalar: BaseFloat,
+          D::Vector: BaseVectorGeom<D=D>,
+          D::Point: BasePointGeom<D=D>
 {
     #[inline]
     fn bounding_box(&self) -> BoundBox<D> {
@@ -196,7 +203,9 @@ impl<D> Linear for Ray<D>
 }
 
 impl<D> Linear for Segment<D>
-    where D: Dimensionality
+    where D: Dimensionality,
+          D::Vector: VectorSpace<Scalar=D::Scalar>,
+          D::Point: EuclideanSpace<Diff=D::Vector>
 {
     type D = D;
 
@@ -219,7 +228,9 @@ impl<D> Linear for Segment<D>
 }
 
 impl<D> Linear for Line<D>
-    where D: Dimensionality
+    where D: Dimensionality,
+          D::Vector: VectorSpace<Scalar=D::Scalar>,
+          D::Point: EuclideanSpace<Diff=D::Vector>
 {
     type D = D;
 
@@ -284,9 +295,8 @@ macro_rules! ld {
 }
 
 impl<L, R> Intersect<R> for L
-    where L: Linear,
-          R: Linear<D=L::D>,
-          L::D: Dimensionality<Point=Point2<ld!(Scalar)>, Vector=Vector2<ld!(Scalar)>>
+    where L: Linear<D=D2>,
+          R: Linear<D=D2>,
 {
     type Intersection = ld!(Point);
     fn intersect(self, rhs: R) -> Intersection<ld!(Point)> {
