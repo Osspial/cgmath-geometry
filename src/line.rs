@@ -321,11 +321,10 @@ impl<L, R> Intersect<R> for L
         let t = (rd.x*(lo.y-ro.y) - rd.y*(lo.x-ro.x))/slope_diff;
         let intersection = lo + ld * t;
 
-        unimplemented!()
-        // match self.bounding_box().intersect_rect(rhs.bounding_box()).map(|r| r.contains(intersection)) {
-        //     Some(true) => Intersection::Some(intersection),
-        //     _ => Intersection::None
-        // }
+        match self.bounding_box().intersect_rect(rhs.bounding_box()).map(|r| r.contains(intersection)) {
+            Some(true) => Intersection::Some(intersection),
+            _ => Intersection::None
+        }
     }
 }
 
