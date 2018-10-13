@@ -20,18 +20,16 @@ extern crate num_traits;
 #[cfg(feature="serde")]
 extern crate serde;
 
-macro_rules! P {
-    ($($t:tt)*) => (<P as EuclideanSpace>$($t)*);
+macro_rules! d {
+    ($($t:tt)*) => {
+        <Self::D as Dimensionality<Self::Scalar>>::$($t)*
+    };
 }
 
 pub mod ellipse;
 pub mod line;
 pub mod polar;
 pub mod rect;
-
-pub use self::ellipse::*;
-pub use self::rect::*;
-pub use self::line::*;
 
 use cgmath::*;
 
@@ -49,7 +47,32 @@ pub trait AbsDistance {
 }
 
 pub trait BaseScalarGeom: BaseNum + MulDiv + Bounded + AbsDistance {}
+pub trait BasePointGeom:
+          EuclideanSpace<Diff=<<Self as BasePointGeom>::D as Dimensionality<<Self as EuclideanSpace>::Scalar>>::Vector>
+        + ElementWise<<Self as EuclideanSpace>::Scalar>
+        + MulDiv<<Self as EuclideanSpace>::Scalar>
+    where <Self::D as Dimensionality<<Self as EuclideanSpace>::Scalar>>::Vector: BaseVectorGeom<D=Self::D>,
+          <Self::D as Dimensionality<<Self as EuclideanSpace>::Scalar>>::Vector: VectorSpace<Scalar=<Self as EuclideanSpace>::Scalar>,
+          <Self as EuclideanSpace>::Scalar: BaseScalarGeom
+{
+    type D: Dimensionality<<Self as EuclideanSpace>::Scalar>;
+}
+pub trait BaseVectorGeom:
+          VectorSpace
+        + Array<Element=<Self as VectorSpace>::Scalar>
+        + MulDiv
+        + MulDiv<<Self as VectorSpace>::Scalar>
+    where <Self as VectorSpace>::Scalar: BaseScalarGeom
+{
+    type D: Dimensionality<<Self as VectorSpace>::Scalar>;
+}
 impl<T: BaseNum + MulDiv + Bounded + AbsDistance> BaseScalarGeom for T {}
+impl<S: BaseScalarGeom> BasePointGeom for Point1<S> { type D = D1; }
+impl<S: BaseScalarGeom> BasePointGeom for Point2<S> { type D = D2; }
+impl<S: BaseScalarGeom> BasePointGeom for Point3<S> { type D = D3; }
+impl<S: BaseScalarGeom> BaseVectorGeom for Vector1<S> { type D = D1; }
+impl<S: BaseScalarGeom> BaseVectorGeom for Vector2<S> { type D = D2; }
+impl<S: BaseScalarGeom> BaseVectorGeom for Vector3<S> { type D = D3; }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Intersection<I> {
@@ -61,6 +84,33 @@ pub enum Intersection<I> {
 pub trait Intersect<RHS=Self> {
     type Intersection;
     fn intersect(self, rhs: RHS) -> Intersection<Self::Intersection>;
+}
+
+pub trait Dimensionality<S: BaseScalarGeom>: Sized {
+    type Point: BasePointGeom<D=Self> + EuclideanSpace<Scalar=S>;
+    type Vector: BaseVectorGeom<D=Self> + VectorSpace<Scalar=S>;
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature="serde", derive(Deserialize, Serialize))]
+pub enum D1 {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature="serde", derive(Deserialize, Serialize))]
+pub enum D2 {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature="serde", derive(Deserialize, Serialize))]
+pub enum D3 {}
+impl<S: BaseScalarGeom> Dimensionality<S> for D1 {
+    type Point = Point1<S>;
+    type Vector = Vector1<S>;
+}
+impl<S: BaseScalarGeom> Dimensionality<S> for D2 {
+    type Point = Point2<S>;
+    type Vector = Vector2<S>;
+}
+impl<S: BaseScalarGeom> Dimensionality<S> for D3 {
+    type Point = Point3<S>;
+    type Vector = Vector3<S>;
 }
 
 impl<I> Into<Option<I>> for Intersection<I> {
@@ -275,9 +325,9 @@ impl_abs_dist_int! {
     // impl u64 => u64;
 }
 
-impl_mul_div_array_default!(Point1, Point2, Point3, Vector1, Vector2, Vector3, Vector4);
-
 impl_mul_div_float! {
     impl f32;
     impl f64;
 }
+
+impl_mul_div_array_default!(Point1, Point2, Point3, Vector1, Vector2, Vector3, Vector4);

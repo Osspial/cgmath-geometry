@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use {BaseScalarGeom, MulDiv};
+use {BaseScalarGeom, MulDiv, D2};
 use rect::{DimsBox, GeoBox};
 use polar::{Polar2, PolarSpace};
 
@@ -26,7 +26,7 @@ pub struct Circle2<S> {
 
 pub struct Ellipse2<S: BaseScalarGeom> {
     pub origin: Point2<S>,
-    pub dims: DimsBox<Point2<S>>
+    pub dims: DimsBox<S, D2>
 }
 
 pub trait Ellipse {
@@ -68,7 +68,9 @@ pub trait Circle: Ellipse {
 }
 
 impl<S> Ellipse for Circle2<S>
-    where S: BaseFloat + MulDiv
+    where S: BaseFloat + MulDiv,
+          Vector2<S>: MulDiv + MulDiv<S>,
+          Point2<S>: MulDiv + MulDiv<S>
 {
     type Scalar = S;
     type Point = Point2<S>;
@@ -92,10 +94,14 @@ impl<S> Ellipse for Circle2<S>
     }
 }
 impl<S> Circle for Circle2<S>
-    where S: BaseScalarGeom + BaseFloat {}
+    where S: BaseScalarGeom + BaseFloat,
+          Vector2<S>: MulDiv + MulDiv<S>,
+          Point2<S>: MulDiv + MulDiv<S> {}
 
 impl<S> Ellipse for Ellipse2<S>
-    where S: BaseScalarGeom + BaseFloat
+    where S: BaseScalarGeom + BaseFloat,
+          Vector2<S>: MulDiv + MulDiv<S>,
+          Point2<S>: MulDiv + MulDiv<S>
 {
     type Scalar = S;
     type Point = Point2<S>;
