@@ -22,7 +22,7 @@ use rect::{BoundBox, GeoBox};
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature="serde", derive(Deserialize, Serialize))]
-pub struct Ray<D: Dimensionality> {
+pub struct Ray<S: BaseScalarGeom, D: Dimensionality<S>> {
     pub origin: D::Point,
     pub dir: D::Vector
 }
@@ -31,7 +31,7 @@ pub struct Ray<D: Dimensionality> {
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature="serde", derive(Deserialize, Serialize))]
-pub struct Segment<D: Dimensionality> {
+pub struct Segment<S: BaseScalarGeom, D: Dimensionality<S>> {
     pub start: D::Point,
     pub end: D::Point
 }
@@ -40,22 +40,23 @@ pub struct Segment<D: Dimensionality> {
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature="serde", derive(Deserialize, Serialize))]
-pub struct Line<D: Dimensionality> {
+pub struct Line<S: BaseScalarGeom, D: Dimensionality<S>> {
     pub origin: D::Point,
     pub dir: D::Vector
 }
 
 pub trait Linear
-    where <Self::D as Dimensionality>::Vector: VectorSpace<Scalar=<Self::D as Dimensionality>::Scalar>,
-          <Self::D as Dimensionality>::Point: EuclideanSpace<Diff=<Self::D as Dimensionality>::Vector>
+    where d!(Vector): VectorSpace<Scalar=Self::Scalar>,
+          d!(Point): EuclideanSpace<Scalar=Self::Scalar, Diff=d!(Vector)>
 {
-    type D: Dimensionality;
+    type Scalar: BaseScalarGeom;
+    type D: Dimensionality<Self::Scalar>;
 
     fn origin(&self) -> d!(Point);
     fn dir(&self) -> d!(Vector);
     #[inline]
     fn dir_recip(&self) -> d!(Vector)
-        where d!(Scalar): Float
+        where Self::Scalar: Float
     {
         let mut d = self.dir();
         for i in 0..d!(Vector::len()) {
@@ -66,11 +67,11 @@ pub trait Linear
     fn start(&self) -> Option<d!(Point)>;
     fn end(&self) -> Option<d!(Point)>;
 
-    fn bounding_box(&self) -> BoundBox<Self::D> {
+    fn bounding_box(&self) -> BoundBox<Self::Scalar, Self::D> {
         let l = self.start().expect("Manual bounding box impl required");
         let r = self.end().expect("Manual bounding box impl required");
 
-        let mut min = d!(Point::from_value(d!(Scalar::zero())));
+        let mut min = d!(Point::from_value(Self::Scalar::zero()));
         let mut max = min;
         for i in 0..d!(Point::len()) {
             min[i] = ::cmp_min(l[i], r[i]);
@@ -80,17 +81,17 @@ pub trait Linear
         BoundBox::from_bounds(min, max)
     }
 
-    fn clip_to_scalar_bounds(&self) -> Segment<Self::D> {
+    fn clip_to_scalar_bounds(&self) -> Segment<Self::Scalar, Self::D> {
         let origin = self.origin();
         let dir = self.dir();
-        let zero = d!(Scalar::zero());
+        let zero = Self::Scalar::zero();
 
         // to_end is whether to project to the end of the line (along the direction vector) or to
         // the start of the line (against the direction vector). Changing that changes some
         // comparisons.
         let project = |to_end: bool| {
             let mut axis_closest = usize::max_value();
-            let mut axis_closest_threshold = d!(Scalar::max_value().to_abs());
+            let mut axis_closest_threshold = Self::Scalar::max_value().to_abs();
             let mut axis_closest_muldiv = (zero.to_abs(), zero.to_abs());
 
             for i in 0..d!(Point::len()) {
@@ -99,10 +100,10 @@ pub trait Linear
                     false => zero.partial_cmp(&dir[i])
                 };
                 let axis_dist = match dir_cmp {
-                    Some(Ordering::Less) => origin[i].abs_distance(d!(Scalar::min_value())),
-                    Some(Ordering::Greater) => origin[i].abs_distance(d!(Scalar::max_value())),
+                    Some(Ordering::Less) => origin[i].abs_distance(Self::Scalar::min_value()),
+                    Some(Ordering::Greater) => origin[i].abs_distance(Self::Scalar::max_value()),
                     Some(Ordering::Equal) |
-                    None                 => d!(Scalar::max_value().to_abs())
+                    None                 => Self::Scalar::max_value().to_abs()
                 };
 
                 let axis_threshold = axis_dist / dir[i].to_abs();
@@ -136,11 +137,13 @@ pub trait Linear
     }
 }
 
-impl<D> Linear for Ray<D>
-    where D: Dimensionality,
-          D::Vector: VectorSpace<Scalar=D::Scalar>,
-          D::Point: EuclideanSpace<Diff=D::Vector>
+impl<S, D> Linear for Ray<S, D>
+    where S: BaseScalarGeom,
+          D: Dimensionality<S>,
+          D::Vector: VectorSpace<Scalar=S>,
+          D::Point: EuclideanSpace<Scalar=S, Diff=D::Vector>
 {
+    type Scalar = S;
     type D = D;
 
     #[inline]
@@ -157,19 +160,19 @@ impl<D> Linear for Ray<D>
     }
 
     #[inline]
-    default fn bounding_box(&self) -> BoundBox<D> {
+    default fn bounding_box(&self) -> BoundBox<S, D> {
         let mut outer_bound = d!(Point::from_vec(self.dir()));
         for i in 0..D::Point::len() {
-            outer_bound[i] = match outer_bound[i].partial_cmp(&D::Scalar::zero()) {
-                Some(Ordering::Less) => D::Scalar::min_value(),
-                Some(Ordering::Greater) => D::Scalar::max_value(),
+            outer_bound[i] = match outer_bound[i].partial_cmp(&S::zero()) {
+                Some(Ordering::Less) => S::min_value(),
+                Some(Ordering::Greater) => S::max_value(),
                 None |
                 Some(Ordering::Equal) => self.origin[i],
             };
         }
 
         let (l, r) = (self.origin, outer_bound);
-        let mut min = D::Point::from_value(D::Scalar::zero());
+        let mut min = D::Point::from_value(S::zero());
         let mut max = min;
         for i in 0..D::Point::len() {
             min[i] = ::cmp_min(l[i], r[i]);
@@ -180,18 +183,18 @@ impl<D> Linear for Ray<D>
     }
 }
 
-impl<D> Linear for Ray<D>
-    where D: Dimensionality,
-          D::Scalar: BaseFloat,
+impl<S, D> Linear for Ray<S, D>
+    where S: BaseScalarGeom + Float,
+          D: Dimensionality<S>,
           D::Vector: BaseVectorGeom<D=D>,
           D::Point: BasePointGeom<D=D>
 {
     #[inline]
-    fn bounding_box(&self) -> BoundBox<D> {
-        let outer_bound = d!(Point::from_vec(self.dir()).mul_element_wise(D::Scalar::infinity()));
+    fn bounding_box(&self) -> BoundBox<S, D> {
+        let outer_bound = d!(Point::from_vec(self.dir()).mul_element_wise(S::infinity()));
 
         let (l, r) = (self.origin, outer_bound);
-        let mut min = D::Point::from_value(D::Scalar::zero());
+        let mut min = D::Point::from_value(S::zero());
         let mut max = min;
         for i in 0..D::Point::len() {
             min[i] = ::cmp_min(l[i], r[i]);
@@ -202,11 +205,13 @@ impl<D> Linear for Ray<D>
     }
 }
 
-impl<D> Linear for Segment<D>
-    where D: Dimensionality,
-          D::Vector: VectorSpace<Scalar=D::Scalar>,
-          D::Point: EuclideanSpace<Diff=D::Vector>
+impl<S, D> Linear for Segment<S, D>
+    where S: BaseScalarGeom,
+          D: Dimensionality<S>,
+          D::Vector: VectorSpace<Scalar=S>,
+          D::Point: EuclideanSpace<Scalar=S, Diff=D::Vector>
 {
+    type Scalar = S;
     type D = D;
 
     #[inline]
@@ -227,11 +232,13 @@ impl<D> Linear for Segment<D>
     }
 }
 
-impl<D> Linear for Line<D>
-    where D: Dimensionality,
-          D::Vector: VectorSpace<Scalar=D::Scalar>,
-          D::Point: EuclideanSpace<Diff=D::Vector>
+impl<S, D> Linear for Line<S, D>
+    where S: BaseScalarGeom,
+          D: Dimensionality<S>,
+          D::Vector: VectorSpace<Scalar=S>,
+          D::Point: EuclideanSpace<Scalar=S, Diff=D::Vector>
 {
+    type Scalar = S;
     type D = D;
 
     fn origin(&self) -> D::Point {
@@ -246,21 +253,21 @@ impl<D> Linear for Line<D>
     fn end(&self) -> Option<D::Point> {None}
 }
 
-impl<D: Dimensionality> Segment<D> {
+impl<S: BaseScalarGeom, D: Dimensionality<S>> Segment<S, D> {
     #[inline]
-    pub fn new(start: D::Point, end: D::Point) -> Segment<D> {
+    pub fn new(start: D::Point, end: D::Point) -> Segment<S, D> {
         Segment{ start, end }
     }
 }
 
 macro_rules! inherent_impl_segment {
     ($D:ident; $new:ident; ($($start:ident),+), ($($end:ident),+)) => {
-        impl<S: BaseScalarGeom> Segment<$D<S>> {
+        impl<S: BaseScalarGeom> Segment<S, $D> {
             #[inline]
-            pub fn $new($($start: S),+, $($end: S),+) -> Segment<$D<S>> {
+            pub fn $new($($start: S),+, $($end: S),+) -> Segment<S, $D> {
                 Segment {
-                    start: <$D<S> as Dimensionality>::Point::new($($start),+),
-                    end: <$D<S> as Dimensionality>::Point::new($($end),+)
+                    start: <$D as Dimensionality<S>>::Point::new($($start),+),
+                    end: <$D as Dimensionality<S>>::Point::new($($end),+)
                 }
             }
         }
@@ -268,12 +275,12 @@ macro_rules! inherent_impl_segment {
 }
 macro_rules! inherent_impl_ray {
     ($Name:ident; $D:ident; $new:ident; ($($origin:ident),+), ($($dir:ident),+)) => {
-        impl<S: BaseScalarGeom> $Name<$D<S>> {
+        impl<S: BaseScalarGeom> $Name<S, $D> {
             #[inline]
-            pub fn $new($($origin: S),+, $($dir: S),+) -> $Name<$D<S>> {
+            pub fn $new($($origin: S),+, $($dir: S),+) -> $Name<S, $D> {
                 $Name {
-                    origin: <$D<S> as Dimensionality>::Point::new($($origin),+),
-                    dir: <$D<S> as Dimensionality>::Vector::new($($dir),+)
+                    origin: <$D as Dimensionality<S>>::Point::new($($origin),+),
+                    dir: <$D as Dimensionality<S>>::Vector::new($($dir),+)
                 }
             }
         }
@@ -290,21 +297,21 @@ inherent_impl_ray!(Line; D1; new1; (origin_x), (dir_x));
 inherent_impl_ray!(Line; D2; new2; (origin_x, origin_y), (dir_x, dir_y));
 inherent_impl_ray!(Line; D3; new3; (origin_x, origin_y, origin_z), (dir_x, dir_y, dir_z));
 
-macro_rules! ld {
-    ($($t:tt)*) => {<L::D as Dimensionality>::$($t)* };
-}
+// macro_rules! ld {
+//     ($($t:tt)*) => {<L::D as Dimensionality>::$($t)* };
+// }
 
 impl<L, R> Intersect<R> for L
     where L: Linear<D=D2>,
-          R: Linear<D=D2>,
+          R: Linear<Scalar=L::Scalar, D=D2>,
 {
-    type Intersection = ld!(Point);
-    fn intersect(self, rhs: R) -> Intersection<ld!(Point)> {
+    type Intersection = Point2<L::Scalar>;
+    fn intersect(self, rhs: R) -> Intersection<Point2<L::Scalar>> {
         let (lo, ro) = (self.origin(), rhs.origin());
         let (ld, rd) = (self.dir(), rhs.dir());
         let slope_diff = rd.y*ld.x - rd.x*ld.y;
 
-        if slope_diff == ld!(Scalar::zero()) {
+        if slope_diff == L::Scalar::zero() {
             return if (ro.y-lo.y) * (ro.x-lo.x) == ld.x * ld.y || ro == lo {
                 Intersection::Eq
             } else {
@@ -314,10 +321,11 @@ impl<L, R> Intersect<R> for L
         let t = (rd.x*(lo.y-ro.y) - rd.y*(lo.x-ro.x))/slope_diff;
         let intersection = lo + ld * t;
 
-        match self.bounding_box().intersect_rect(rhs.bounding_box()).map(|r| r.contains(intersection)) {
-            Some(true) => Intersection::Some(intersection),
-            _ => Intersection::None
-        }
+        unimplemented!()
+        // match self.bounding_box().intersect_rect(rhs.bounding_box()).map(|r| r.contains(intersection)) {
+        //     Some(true) => Intersection::Some(intersection),
+        //     _ => Intersection::None
+        // }
     }
 }
 
@@ -343,27 +351,32 @@ impl<L, R> Intersect<R> for L
 //     }
 // }
 
-impl<D: Dimensionality> PartialEq for Line<D>
-    where D::Vector: PartialEq + Mul + Array<Element=D::Scalar>,
-          D::Scalar: Mul
+impl<S: BaseScalarGeom, D: Dimensionality<S>> PartialEq for Line<S, D>
+    where D::Vector: PartialEq + Mul + Array<Element=S>,
+          D::Vector: VectorSpace<Scalar=S>,
+          D::Point: EuclideanSpace<Scalar=S, Diff=D::Vector>
 {
     #[inline]
-    default fn eq(&self, other: &Line<D>) -> bool {
+    default fn eq(&self, other: &Line<S, D>) -> bool {
         self.dir == other.dir && (other.origin - self.origin).product() == self.dir.product()
     }
 }
 
-impl<D: Dimensionality> PartialEq for Line<D>
-    where D::Vector: PartialEq + Mul + Array<Element=D::Scalar>,
-          D::Scalar: Mul + Signed
+impl<S: BaseScalarGeom + Signed, D: Dimensionality<S>> PartialEq for Line<S, D>
+    where D::Vector: PartialEq + Mul + Array<Element=S>,
+          D::Vector: VectorSpace<Scalar=S>,
+          D::Point: EuclideanSpace<Scalar=S, Diff=D::Vector>
 {
     #[inline]
-    fn eq(&self, other: &Line<D>) -> bool {
+    fn eq(&self, other: &Line<S, D>) -> bool {
         self.dir == other.dir && (other.origin - self.origin).product().abs() == self.dir.product().abs()
     }
 }
-impl<D> Eq for Line<D>
-    where D: Dimensionality,
-          D::Vector: PartialEq + Mul + Array<Element=D::Scalar>,
-          D::Scalar: Mul + Eq {}
+impl<S, D> Eq for Line<S, D>
+    where D::Vector: PartialEq + Mul + Array<Element=S>,
+          D::Vector: VectorSpace<Scalar=S>,
+          D::Point: EuclideanSpace<Scalar=S, Diff=D::Vector>,
+          S: BaseScalarGeom + Eq,
+          D: Dimensionality<S>,
+          {}
 

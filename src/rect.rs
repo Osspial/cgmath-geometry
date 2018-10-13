@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use {MulDiv, BaseScalarGeom, AbsDistance, BasePointGeom, BaseVectorGeom, Dimensionality, D1, D2, D3};
+use {MulDiv, BaseScalarGeom, BaseVectorGeom, Dimensionality, D1, D2, D3};
 use cgmath::*;
 
 use line::{Linear, Segment};
@@ -23,14 +23,14 @@ use num_traits::{Bounded, NumCast, ToPrimitive};
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature="serde", derive(Deserialize, Serialize))]
-pub struct DimsBox<D: Dimensionality> {
+pub struct DimsBox<S: BaseScalarGeom, D: Dimensionality<S>> {
     pub dims: D::Vector
 }
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature="serde", derive(Deserialize, Serialize))]
-pub struct OffsetBox<D: Dimensionality> {
+pub struct OffsetBox<S: BaseScalarGeom, D: Dimensionality<S>> {
     pub origin: D::Point,
     pub dims: D::Vector
 }
@@ -38,16 +38,17 @@ pub struct OffsetBox<D: Dimensionality> {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature="serde", derive(Deserialize, Serialize))]
-pub struct BoundBox<D: Dimensionality> {
+pub struct BoundBox<S: BaseScalarGeom, D: Dimensionality<S>> {
     pub min: D::Point,
     pub max: D::Point
 }
 
 pub trait GeoBox
-    where <Self::D as Dimensionality>::Vector: VectorSpace<Scalar=<Self::D as Dimensionality>::Scalar>,
-          <Self::D as Dimensionality>::Point: EuclideanSpace<Diff=<Self::D as Dimensionality>::Vector>
+    where <Self::D as Dimensionality<Self::Scalar>>::Vector: VectorSpace<Scalar=Self::Scalar>,
+          <Self::D as Dimensionality<Self::Scalar>>::Point: EuclideanSpace<Scalar=Self::Scalar, Diff=<Self::D as Dimensionality<Self::Scalar>>::Vector>
 {
-    type D: Dimensionality;
+    type Scalar: BaseScalarGeom;
+    type D: Dimensionality<Self::Scalar>;
 
     fn from_bounds(min: d!(Point), max: d!(Point)) -> Self;
 
@@ -62,35 +63,35 @@ pub trait GeoBox
     }
 
     #[inline]
-    fn dims(&self) -> DimsBox<Self::D> {
+    fn dims(&self) -> DimsBox<Self::Scalar, Self::D> {
         DimsBox::new(self.max() - self.min())
     }
 
     #[inline]
-    fn width(&self) -> d!(Scalar) {
+    fn width(&self) -> Self::Scalar {
         match d!(Point::len()) >= 1 {
             true => self.dims().dims[0],
-            false => d!(Scalar::zero())
+            false => Self::Scalar::zero()
         }
     }
     #[inline]
-    fn height(&self) -> d!(Scalar) {
+    fn height(&self) -> Self::Scalar {
         match d!(Point::len()) >= 2 {
             true => self.dims().dims[1],
-            false => d!(Scalar::zero())
+            false => Self::Scalar::zero()
         }
     }
     #[inline]
-    fn depth(&self) -> d!(Scalar) {
+    fn depth(&self) -> Self::Scalar {
         match d!(Point::len()) >= 3 {
             true => self.dims().dims[2],
-            false => d!(Scalar::zero())
+            false => Self::Scalar::zero()
         }
     }
 
     #[inline]
     fn center(&self) -> d!(Point) {
-        self.min() + self.dims().dims / (d!(Scalar::one()) + d!(Scalar::one()))
+        self.min() + self.dims().dims / (Self::Scalar::one() + Self::Scalar::one())
     }
 
     #[inline]
@@ -129,30 +130,30 @@ pub trait GeoBox
     }
 
     fn intersect_line<L>(&self, line: L) -> (Option<d!(Point)>, Option<d!(Point)>)
-        where L: Linear<D=Self::D>,
-              d!(Scalar): Bounded
+        where L: Linear<Scalar=Self::Scalar, D=Self::D>,
+              Self::Scalar: Bounded
     {
         struct TS;
         trait TypeSwitch<S>
             where S: BaseScalarGeom
         {
             fn intersect_ts<D, R, L>(rect: &R, line: L) -> (Option<D::Point>, Option<D::Point>)
-                    where D: Dimensionality<Scalar=S>,
-                          D::Vector: BaseVectorGeom<D=D>,// VectorSpace<Scalar=D::Scalar>,
-                          D::Point: BasePointGeom<D=D>,// EuclideanSpace<Diff=D::Vector>,
-                          R: GeoBox<D=D> + ?Sized,
-                          L: Linear<D=D>;
+                    where D: Dimensionality<S>,
+                          D::Vector: BaseVectorGeom<D=D>,// VectorSpace<Scalar=S>,
+                          D::Point: EuclideanSpace<Scalar=S, Diff=D::Vector>,
+                          R: GeoBox<Scalar=S, D=D> + ?Sized,
+                          L: Linear<Scalar=S, D=D>;
         }
 
         impl<S> TypeSwitch<S> for TS
             where S: BaseFloat + BaseScalarGeom
         {
             fn intersect_ts<D, R, L>(rect: &R, line: L) -> (Option<D::Point>, Option<D::Point>)
-                    where D: Dimensionality<Scalar=S>,
-                          D::Vector: VectorSpace<Scalar=D::Scalar>,
-                          D::Point: EuclideanSpace<Diff=D::Vector>,
-                          R: GeoBox<D=D> + ?Sized,
-                          L: Linear<D=D>
+                    where D: Dimensionality<S>,
+                          D::Vector: BaseVectorGeom<D=D>,
+                          D::Point: EuclideanSpace<Scalar=S, Diff=D::Vector>,
+                          R: GeoBox<Scalar=S, D=D> + ?Sized,
+                          L: Linear<Scalar=S, D=D>
             {
                 let line_origin = line.origin();
                 let dir = line.dir();
@@ -204,13 +205,13 @@ pub trait GeoBox
             where S: BaseScalarGeom
         {
             default fn intersect_ts<D, R, L>(rect: &R, line: L) -> (Option<D::Point>, Option<D::Point>)
-                    where D: Dimensionality<Scalar=S>,
-                          D::Vector: VectorSpace<Scalar=D::Scalar>,
-                          D::Point: EuclideanSpace<Diff=D::Vector>,
-                          R: GeoBox<D=D> + ?Sized,
-                          L: Linear<D=D>
+                    where D: Dimensionality<S>,
+                          D::Vector: BaseVectorGeom<D=D>,
+                          D::Point: EuclideanSpace<Scalar=S, Diff=D::Vector>,
+                          R: GeoBox<Scalar=S, D=D> + ?Sized,
+                          L: Linear<Scalar=S, D=D>
             {
-                let zero = D::Scalar::zero();
+                let zero = S::zero();
                 let min = rect.min();
                 let max = rect.max();
 
@@ -271,42 +272,42 @@ pub trait GeoBox
 
 macro_rules! inherent_impl_dims_offset {
     ($D:ident; $new:ident; $($origin:ident, $dim:ident),+) => {
-        impl<S: BaseScalarGeom> DimsBox<$D<S>> {
+        impl<S: BaseScalarGeom> DimsBox<S, $D> {
             #[inline]
-            pub fn $new($($dim: S),+) -> DimsBox<$D<S>> {
+            pub fn $new($($dim: S),+) -> DimsBox<S, $D> {
                 DimsBox {
-                    dims: <$D<S> as Dimensionality>::Vector::new($($dim),+)
+                    dims: <$D as Dimensionality<S>>::Vector::new($($dim),+)
                 }
             }
 
             #[inline]
-            pub fn cast<T>(&self) -> Option<DimsBox<$D<T>>>
+            pub fn cast<T>(&self) -> Option<DimsBox<T, $D>>
                 where T: NumCast + BaseScalarGeom,
                       S: ToPrimitive
             {
                 Some(DimsBox {
-                    dims: <$D<S> as Dimensionality>::Vector::cast(&self.dims)?
+                    dims: <$D as Dimensionality<S>>::Vector::cast(&self.dims)?
                 })
             }
         }
 
-        impl<S: BaseScalarGeom> OffsetBox<$D<S>> {
+        impl<S: BaseScalarGeom> OffsetBox<S, $D> {
             #[inline]
-            pub fn $new($($origin: S,)+ $($dim: S),+) -> OffsetBox<$D<S>> {
+            pub fn $new($($origin: S,)+ $($dim: S),+) -> OffsetBox<S, $D> {
                 OffsetBox {
-                    origin: <$D<S> as Dimensionality>::Point::new($($origin),+),
-                    dims: <$D<S> as Dimensionality>::Vector::new($($dim),+)
+                    origin: <$D as Dimensionality<S>>::Point::new($($origin),+),
+                    dims: <$D as Dimensionality<S>>::Vector::new($($dim),+)
                 }
             }
 
             #[inline]
-            pub fn cast<T>(&self) -> Option<OffsetBox<$D<T>>>
+            pub fn cast<T>(&self) -> Option<OffsetBox<T, $D>>
                 where T: NumCast + BaseScalarGeom,
                       S: ToPrimitive
             {
                 Some(OffsetBox {
-                    origin: <$D<S> as Dimensionality>::Point::cast(&self.origin)?,
-                    dims: <$D<S> as Dimensionality>::Vector::cast(&self.dims)?
+                    origin: <$D as Dimensionality<S>>::Point::cast(&self.origin)?,
+                    dims: <$D as Dimensionality<S>>::Vector::cast(&self.dims)?
                 })
             }
         }
@@ -315,44 +316,44 @@ macro_rules! inherent_impl_dims_offset {
 
 macro_rules! inherent_impl_bounds {
     ($D:ident; $new:ident; ($($min:ident),+), ($($max:ident),+)) => {
-        impl<S: BaseScalarGeom> BoundBox<$D<S>> {
+        impl<S: BaseScalarGeom> BoundBox<S, $D> {
             #[inline]
-            pub fn $new($($min: S),+, $($max: S),+) -> BoundBox<$D<S>> {
+            pub fn $new($($min: S),+, $($max: S),+) -> BoundBox<S, $D> {
                 BoundBox {
-                    min: <$D<S> as Dimensionality>::Point::new($($min),+),
-                    max: <$D<S> as Dimensionality>::Point::new($($max),+)
+                    min: <$D as Dimensionality<S>>::Point::new($($min),+),
+                    max: <$D as Dimensionality<S>>::Point::new($($max),+)
                 }
             }
 
             #[inline]
-            pub fn cast<T>(&self) -> Option<BoundBox<$D<T>>>
+            pub fn cast<T>(&self) -> Option<BoundBox<T, $D>>
                 where T: NumCast + BaseScalarGeom,
                       S: ToPrimitive
             {
                 Some(BoundBox {
-                    min: <$D<S> as Dimensionality>::Point::cast(&self.min)?,
-                    max: <$D<S> as Dimensionality>::Point::cast(&self.max)?,
+                    min: <$D as Dimensionality<S>>::Point::cast(&self.min)?,
+                    max: <$D as Dimensionality<S>>::Point::cast(&self.max)?,
                 })
             }
         }
     }
 }
 
-impl<D: Dimensionality> DimsBox<D> {
+impl<S: BaseScalarGeom, D: Dimensionality<S>> DimsBox<S, D> {
     #[inline]
-    pub fn new(dims: D::Vector) -> DimsBox<D> {
+    pub fn new(dims: D::Vector) -> DimsBox<S, D> {
         DimsBox{ dims }
     }
 }
-impl<D: Dimensionality> OffsetBox<D> {
+impl<S: BaseScalarGeom, D: Dimensionality<S>> OffsetBox<S, D> {
     #[inline]
-    pub fn new(origin: D::Point, dims: D::Vector) -> OffsetBox<D> {
+    pub fn new(origin: D::Point, dims: D::Vector) -> OffsetBox<S, D> {
         OffsetBox{ origin, dims }
     }
 }
-impl<D: Dimensionality> BoundBox<D> {
+impl<S: BaseScalarGeom, D: Dimensionality<S>> BoundBox<S, D> {
     #[inline]
-    pub fn new(min: D::Point, max: D::Point) -> BoundBox<D> {
+    pub fn new(min: D::Point, max: D::Point) -> BoundBox<S, D> {
         BoundBox{ min, max }
     }
 }
@@ -365,54 +366,59 @@ inherent_impl_bounds!(D1; new1; (min_x), (max_x));
 inherent_impl_bounds!(D2; new2; (min_x, min_y), (max_x, max_y));
 inherent_impl_bounds!(D3; new3; (min_x, min_y, min_z), (max_x, max_y, max_z));
 
-impl<D> GeoBox for DimsBox<D>
-    where D: Dimensionality,
-          D::Vector: VectorSpace<Scalar=D::Scalar>,
+impl<S, D> GeoBox for DimsBox<S, D>
+    where S: BaseScalarGeom,
+          D: Dimensionality<S>,
+          D::Vector: VectorSpace<Scalar=S>,
           D::Point: EuclideanSpace<Diff=D::Vector>
 {
+    type Scalar = S;
     type D = D;
 
     #[inline]
-    fn from_bounds(min: D::Point, max: D::Point) -> DimsBox<D> {
+    fn from_bounds(min: D::Point, max: D::Point) -> DimsBox<S, D> {
         DimsBox {
             dims: max - min
         }
     }
 
     #[inline]
-    fn min(&self) -> D::Point {D::Point::from_value(D::Scalar::zero())}
+    fn min(&self) -> D::Point {D::Point::from_value(S::zero())}
     #[inline]
-    fn dims(&self) -> DimsBox<D> {DimsBox{dims: self.dims}}
+    fn dims(&self) -> DimsBox<S, D> {DimsBox{dims: self.dims}}
 }
 
-impl<D> Bounded for DimsBox<D>
-    where D: Dimensionality,
+impl<S, D> Bounded for DimsBox<S, D>
+    where S: BaseScalarGeom,
+          D: Dimensionality<S>,
           D::Vector: Bounded
 {
     #[inline]
-    fn min_value() -> DimsBox<D> {
+    fn min_value() -> DimsBox<S, D> {
         DimsBox {
             dims: D::Vector::min_value()
         }
     }
 
     #[inline]
-    fn max_value() -> DimsBox<D> {
+    fn max_value() -> DimsBox<S, D> {
         DimsBox {
             dims: D::Vector::max_value()
         }
     }
 }
 
-impl<D> GeoBox for OffsetBox<D>
-    where D: Dimensionality,
-          D::Vector: VectorSpace<Scalar=D::Scalar>,
+impl<S, D> GeoBox for OffsetBox<S, D>
+    where S: BaseScalarGeom,
+          D: Dimensionality<S>,
+          D::Vector: VectorSpace<Scalar=S>,
           D::Point: EuclideanSpace<Diff=D::Vector>
 {
+    type Scalar = S;
     type D = D;
 
     #[inline]
-    fn from_bounds(min: D::Point, max: D::Point) -> OffsetBox<D> {
+    fn from_bounds(min: D::Point, max: D::Point) -> OffsetBox<S, D> {
         OffsetBox {
             origin: min,
             dims: max - min
@@ -422,18 +428,20 @@ impl<D> GeoBox for OffsetBox<D>
     #[inline]
     fn min(&self) -> D::Point {self.origin}
     #[inline]
-    fn dims(&self) -> DimsBox<D> {DimsBox::new(self.dims)}
+    fn dims(&self) -> DimsBox<S, D> {DimsBox::new(self.dims)}
 }
 
-impl<D> GeoBox for BoundBox<D>
-    where D: Dimensionality,
-          D::Vector: VectorSpace<Scalar=D::Scalar>,
+impl<S, D> GeoBox for BoundBox<S, D>
+    where S: BaseScalarGeom,
+          D: Dimensionality<S>,
+          D::Vector: VectorSpace<Scalar=S>,
           D::Point: EuclideanSpace<Diff=D::Vector>
 {
+    type Scalar = S;
     type D = D;
 
     #[inline]
-    fn from_bounds(min: D::Point, max: D::Point) -> BoundBox<D> {
+    fn from_bounds(min: D::Point, max: D::Point) -> BoundBox<S, D> {
         BoundBox {
             min, max
         }
@@ -445,39 +453,42 @@ impl<D> GeoBox for BoundBox<D>
     fn max(&self) -> D::Point {self.max}
 }
 
-impl<D> From<DimsBox<D>> for OffsetBox<D>
-    where D: Dimensionality
+impl<S, D> From<DimsBox<S, D>> for OffsetBox<S, D>
+    where S: BaseScalarGeom,
+          D: Dimensionality<S>
 {
     #[inline]
-    fn from(rect: DimsBox<D>) -> OffsetBox<D> {
+    fn from(rect: DimsBox<S, D>) -> OffsetBox<S, D> {
         OffsetBox {
-            origin: D::Point::from_value(D::Scalar::zero()),
+            origin: D::Point::from_value(S::zero()),
             dims: rect.dims
         }
     }
 }
 
-impl<D> From<DimsBox<D>> for BoundBox<D>
-    where D: Dimensionality,
-          D::Vector: VectorSpace<Scalar=D::Scalar>,
+impl<S, D> From<DimsBox<S, D>> for BoundBox<S, D>
+    where S: BaseScalarGeom,
+          D: Dimensionality<S>,
+          D::Vector: VectorSpace<Scalar=S>,
           D::Point: EuclideanSpace<Diff=D::Vector>
 {
     #[inline]
-    fn from(rect: DimsBox<D>) -> BoundBox<D> {
+    fn from(rect: DimsBox<S, D>) -> BoundBox<S, D> {
         BoundBox {
-            min: D::Point::from_value(D::Scalar::zero()),
+            min: D::Point::from_value(S::zero()),
             max: D::Point::from_vec(rect.dims)
         }
     }
 }
 
-impl<D> From<OffsetBox<D>> for BoundBox<D>
-    where D: Dimensionality,
-          D::Vector: VectorSpace<Scalar=D::Scalar>,
+impl<S, D> From<OffsetBox<S, D>> for BoundBox<S, D>
+    where S: BaseScalarGeom,
+          D: Dimensionality<S>,
+          D::Vector: VectorSpace<Scalar=S>,
           D::Point: EuclideanSpace<Diff=D::Vector>
 {
     #[inline]
-    fn from(rect: OffsetBox<D>) -> BoundBox<D> {
+    fn from(rect: OffsetBox<S, D>) -> BoundBox<S, D> {
         BoundBox {
             min: rect.origin,
             max: D::Point::add(rect.origin, rect.dims)
@@ -485,13 +496,14 @@ impl<D> From<OffsetBox<D>> for BoundBox<D>
     }
 }
 
-impl<D> From<BoundBox<D>> for OffsetBox<D>
-    where D: Dimensionality,
-          D::Vector: VectorSpace<Scalar=D::Scalar>,
+impl<S, D> From<BoundBox<S, D>> for OffsetBox<S, D>
+    where S: BaseScalarGeom,
+          D: Dimensionality<S>,
+          D::Vector: VectorSpace<Scalar=S>,
           D::Point: EuclideanSpace<Diff=D::Vector>
 {
     #[inline]
-    fn from(rect: BoundBox<D>) -> OffsetBox<D> {
+    fn from(rect: BoundBox<S, D>) -> OffsetBox<S, D> {
         OffsetBox {
             origin: rect.min,
             dims: D::Point::to_vec(rect.max) - D::Point::to_vec(rect.min)
@@ -499,56 +511,60 @@ impl<D> From<BoundBox<D>> for OffsetBox<D>
     }
 }
 
-impl<D> Add<D::Vector> for OffsetBox<D>
-    where D: Dimensionality,
-          D::Vector: VectorSpace<Scalar=D::Scalar>,
+impl<S, D> Add<D::Vector> for OffsetBox<S, D>
+    where S: BaseScalarGeom,
+          D: Dimensionality<S>,
+          D::Vector: VectorSpace<Scalar=S>,
           D::Point: EuclideanSpace<Diff=D::Vector>
 {
     type Output = Self;
     #[inline]
-    fn add(mut self, rhs: D::Vector) -> OffsetBox<D> {
+    fn add(mut self, rhs: D::Vector) -> OffsetBox<S, D> {
         self.origin = self.origin + rhs;
         self
     }
 }
 
-impl<D> Sub<D::Vector> for OffsetBox<D>
-    where D: Dimensionality,
-          D::Vector: VectorSpace<Scalar=D::Scalar>,
+impl<S, D> Sub<D::Vector> for OffsetBox<S, D>
+    where S: BaseScalarGeom,
+          D: Dimensionality<S>,
+          D::Vector: VectorSpace<Scalar=S>,
           D::Point: EuclideanSpace<Diff=D::Vector>
 {
     type Output = Self;
     #[inline]
-    fn sub(mut self, rhs: D::Vector) -> OffsetBox<D> {
+    fn sub(mut self, rhs: D::Vector) -> OffsetBox<S, D> {
         self.origin = self.origin - rhs;
         self
     }
 }
 
-impl<D> Add<D::Vector> for BoundBox<D>
-    where D: Dimensionality,
-          D::Vector: VectorSpace<Scalar=D::Scalar>,
+impl<S, D> Add<D::Vector> for BoundBox<S, D>
+    where S: BaseScalarGeom,
+          D: Dimensionality<S>,
+          D::Vector: VectorSpace<Scalar=S>,
           D::Point: EuclideanSpace<Diff=D::Vector>
 {
     type Output = Self;
     #[inline]
-    fn add(mut self, rhs: D::Vector) -> BoundBox<D> {
+    fn add(mut self, rhs: D::Vector) -> BoundBox<S, D> {
         self.min = self.min + rhs;
         self.max = self.max + rhs;
         self
     }
 }
 
-impl<D> Sub<D::Vector> for BoundBox<D>
-    where D: Dimensionality,
-          D::Vector: VectorSpace<Scalar=D::Scalar>,
+impl<S, D> Sub<D::Vector> for BoundBox<S, D>
+    where S: BaseScalarGeom,
+          D: Dimensionality<S>,
+          D::Vector: VectorSpace<Scalar=S>,
           D::Point: EuclideanSpace<Diff=D::Vector>
 {
     type Output = Self;
     #[inline]
-    fn sub(mut self, rhs: D::Vector) -> BoundBox<D> {
-        self.min = D::Point::sub(self.min, rhs);
-        self.max = D::Point::sub(self.max, rhs);
+    fn sub(mut self, rhs: D::Vector) -> BoundBox<S, D> {
+        self.min = self.min - rhs;
+        self.max = self.max - rhs;
         self
     }
 }

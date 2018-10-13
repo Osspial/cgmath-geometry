@@ -22,18 +22,18 @@ extern crate serde;
 
 macro_rules! d {
     ($($t:tt)*) => {
-        <Self::D as Dimensionality>::$($t)*
+        <Self::D as Dimensionality<Self::Scalar>>::$($t)*
     };
 }
 
 // pub mod ellipse;
-// pub mod line;
-// pub mod polar;
-// pub mod rect;
+pub mod line;
+pub mod polar;
+pub mod rect;
 
 // pub use self::ellipse::*;
 // pub use self::rect::*;
-// pub use self::line::*;
+pub use self::line::*;
 
 use cgmath::*;
 
@@ -52,29 +52,31 @@ pub trait AbsDistance {
 
 pub trait BaseScalarGeom: BaseNum + MulDiv + Bounded + AbsDistance {}
 pub trait BasePointGeom:
-          EuclideanSpace<Scalar=<<Self as BasePointGeom>::D as Dimensionality>::Scalar, Diff=<<Self as BasePointGeom>::D as Dimensionality>::Vector>
-        + ElementWise<<<Self as BasePointGeom>::D as Dimensionality>::Scalar>
-        + MulDiv<<<Self as BasePointGeom>::D as Dimensionality>::Scalar>
-    where d!(Vector): BaseVectorGeom<D=Self::D>
+          EuclideanSpace<Diff=<<Self as BasePointGeom>::D as Dimensionality<<Self as EuclideanSpace>::Scalar>>::Vector>
+        + ElementWise<<Self as EuclideanSpace>::Scalar>
+        + MulDiv<<Self as EuclideanSpace>::Scalar>
+    where <Self::D as Dimensionality<<Self as EuclideanSpace>::Scalar>>::Vector: BaseVectorGeom<D=Self::D>,
+          <Self::D as Dimensionality<<Self as EuclideanSpace>::Scalar>>::Vector: VectorSpace<Scalar=<Self as EuclideanSpace>::Scalar>,
+          <Self as EuclideanSpace>::Scalar: BaseScalarGeom
 {
-    type D: Dimensionality;
+    type D: Dimensionality<<Self as EuclideanSpace>::Scalar>;
 }
 pub trait BaseVectorGeom:
-          VectorSpace<Scalar=<<Self as BaseVectorGeom>::D as Dimensionality>::Scalar>
-        + Array<Element=<<Self as BaseVectorGeom>::D as Dimensionality>::Scalar>
+          VectorSpace
+        + Array<Element=<Self as VectorSpace>::Scalar>
         + MulDiv
-        + MulDiv<<<Self as BaseVectorGeom>::D as Dimensionality>::Scalar>
+        + MulDiv<<Self as VectorSpace>::Scalar>
+    where <Self as VectorSpace>::Scalar: BaseScalarGeom
 {
-    type D: Dimensionality;
+    type D: Dimensionality<<Self as VectorSpace>::Scalar>;
 }
 impl<T: BaseNum + MulDiv + Bounded + AbsDistance> BaseScalarGeom for T {}
-impl<S: BaseScalarGeom> BasePointGeom for Point1<S> { type D = D1<S>; }
-impl<S: BaseScalarGeom> BasePointGeom for Point2<S> { type D = D2<S>; }
-impl<S: BaseScalarGeom> BasePointGeom for Point3<S> { type D = D3<S>; }
-impl<S: BaseScalarGeom> BaseVectorGeom for Vector1<S> { type D = D1<S>; }
-impl<S: BaseScalarGeom> BaseVectorGeom for Vector2<S> { type D = D2<S>; }
-impl<S: BaseScalarGeom> BaseVectorGeom for Vector3<S> { type D = D3<S>; }
-// impl<S: BaseScalarGeom> BaseVectorGeom for Vector4<S> { type D = D4<S>; }
+impl<S: BaseScalarGeom> BasePointGeom for Point1<S> { type D = D1; }
+impl<S: BaseScalarGeom> BasePointGeom for Point2<S> { type D = D2; }
+impl<S: BaseScalarGeom> BasePointGeom for Point3<S> { type D = D3; }
+impl<S: BaseScalarGeom> BaseVectorGeom for Vector1<S> { type D = D1; }
+impl<S: BaseScalarGeom> BaseVectorGeom for Vector2<S> { type D = D2; }
+impl<S: BaseScalarGeom> BaseVectorGeom for Vector3<S> { type D = D3; }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Intersection<I> {
@@ -88,27 +90,26 @@ pub trait Intersect<RHS=Self> {
     fn intersect(self, rhs: RHS) -> Intersection<Self::Intersection>;
 }
 
-pub trait Dimensionality {
-    type Scalar: BaseScalarGeom;
-    type Point: BasePointGeom;
-    type Vector: BaseVectorGeom;
+pub trait Dimensionality<S: BaseScalarGeom>: Sized {
+    type Point: BasePointGeom<D=Self> + EuclideanSpace<Scalar=S>;
+    type Vector: BaseVectorGeom<D=Self> + VectorSpace<Scalar=S>;
 }
 
-pub struct D1<S: BaseScalarGeom>(S);
-pub struct D2<S: BaseScalarGeom>(S);
-pub struct D3<S: BaseScalarGeom>(S);
-impl<S: BaseScalarGeom> Dimensionality for D1<S> {
-    type Scalar = S;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum D1 {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum D2 {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum D3 {}
+impl<S: BaseScalarGeom> Dimensionality<S> for D1 {
     type Point = Point1<S>;
     type Vector = Vector1<S>;
 }
-impl<S: BaseScalarGeom> Dimensionality for D2<S> {
-    type Scalar = S;
+impl<S: BaseScalarGeom> Dimensionality<S> for D2 {
     type Point = Point2<S>;
     type Vector = Vector2<S>;
 }
-impl<S: BaseScalarGeom> Dimensionality for D3<S> {
-    type Scalar = S;
+impl<S: BaseScalarGeom> Dimensionality<S> for D3 {
     type Point = Point3<S>;
     type Vector = Vector3<S>;
 }
