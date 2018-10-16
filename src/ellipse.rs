@@ -26,7 +26,7 @@ pub struct Circle2<S> {
 
 pub struct Ellipse2<S: BaseScalarGeom> {
     pub origin: Point2<S>,
-    pub dims: DimsBox<S, D2>
+    pub dims: DimsBox<D2, S>
 }
 
 pub trait Ellipse {

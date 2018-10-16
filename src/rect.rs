@@ -23,14 +23,14 @@ use num_traits::{Bounded, NumCast, ToPrimitive};
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature="serde", derive(Deserialize, Serialize))]
-pub struct DimsBox<S: BaseScalarGeom, D: Dimensionality<S>> {
+pub struct DimsBox<D: Dimensionality<S>, S: BaseScalarGeom> {
     pub dims: D::Vector
 }
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature="serde", derive(Deserialize, Serialize))]
-pub struct OffsetBox<S: BaseScalarGeom, D: Dimensionality<S>> {
+pub struct OffsetBox<D: Dimensionality<S>, S: BaseScalarGeom> {
     pub origin: D::Point,
     pub dims: D::Vector
 }
@@ -38,7 +38,7 @@ pub struct OffsetBox<S: BaseScalarGeom, D: Dimensionality<S>> {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature="serde", derive(Deserialize, Serialize))]
-pub struct BoundBox<S: BaseScalarGeom, D: Dimensionality<S>> {
+pub struct BoundBox<D: Dimensionality<S>, S: BaseScalarGeom> {
     pub min: D::Point,
     pub max: D::Point
 }
@@ -63,7 +63,7 @@ pub trait GeoBox
     }
 
     #[inline]
-    fn dims(&self) -> DimsBox<Self::Scalar, Self::D> {
+    fn dims(&self) -> DimsBox<Self::D, Self::Scalar> {
         DimsBox::new(self.max() - self.min())
     }
 
@@ -272,16 +272,16 @@ pub trait GeoBox
 
 macro_rules! inherent_impl_dims_offset {
     ($D:ident; $new:ident; $($origin:ident, $dim:ident),+) => {
-        impl<S: BaseScalarGeom> DimsBox<S, $D> {
+        impl<S: BaseScalarGeom> DimsBox<$D, S> {
             #[inline]
-            pub fn $new($($dim: S),+) -> DimsBox<S, $D> {
+            pub fn $new($($dim: S),+) -> DimsBox<$D, S> {
                 DimsBox {
                     dims: <$D as Dimensionality<S>>::Vector::new($($dim),+)
                 }
             }
 
             #[inline]
-            pub fn cast<T>(&self) -> Option<DimsBox<T, $D>>
+            pub fn cast<T>(&self) -> Option<DimsBox<$D, T>>
                 where T: NumCast + BaseScalarGeom,
                       S: ToPrimitive
             {
@@ -291,9 +291,9 @@ macro_rules! inherent_impl_dims_offset {
             }
         }
 
-        impl<S: BaseScalarGeom> OffsetBox<S, $D> {
+        impl<S: BaseScalarGeom> OffsetBox<$D, S> {
             #[inline]
-            pub fn $new($($origin: S,)+ $($dim: S),+) -> OffsetBox<S, $D> {
+            pub fn $new($($origin: S,)+ $($dim: S),+) -> OffsetBox<$D, S> {
                 OffsetBox {
                     origin: <$D as Dimensionality<S>>::Point::new($($origin),+),
                     dims: <$D as Dimensionality<S>>::Vector::new($($dim),+)
@@ -301,7 +301,7 @@ macro_rules! inherent_impl_dims_offset {
             }
 
             #[inline]
-            pub fn cast<T>(&self) -> Option<OffsetBox<T, $D>>
+            pub fn cast<T>(&self) -> Option<OffsetBox<$D, T>>
                 where T: NumCast + BaseScalarGeom,
                       S: ToPrimitive
             {
@@ -316,9 +316,9 @@ macro_rules! inherent_impl_dims_offset {
 
 macro_rules! inherent_impl_bounds {
     ($D:ident; $new:ident; ($($min:ident),+), ($($max:ident),+)) => {
-        impl<S: BaseScalarGeom> BoundBox<S, $D> {
+        impl<S: BaseScalarGeom> BoundBox<$D, S> {
             #[inline]
-            pub fn $new($($min: S),+, $($max: S),+) -> BoundBox<S, $D> {
+            pub fn $new($($min: S),+, $($max: S),+) -> BoundBox<$D, S> {
                 BoundBox {
                     min: <$D as Dimensionality<S>>::Point::new($($min),+),
                     max: <$D as Dimensionality<S>>::Point::new($($max),+)
@@ -326,7 +326,7 @@ macro_rules! inherent_impl_bounds {
             }
 
             #[inline]
-            pub fn cast<T>(&self) -> Option<BoundBox<T, $D>>
+            pub fn cast<T>(&self) -> Option<BoundBox<$D, T>>
                 where T: NumCast + BaseScalarGeom,
                       S: ToPrimitive
             {
@@ -339,21 +339,21 @@ macro_rules! inherent_impl_bounds {
     }
 }
 
-impl<S: BaseScalarGeom, D: Dimensionality<S>> DimsBox<S, D> {
+impl<D: Dimensionality<S>, S: BaseScalarGeom> DimsBox<D, S> {
     #[inline]
-    pub fn new(dims: D::Vector) -> DimsBox<S, D> {
+    pub fn new(dims: D::Vector) -> DimsBox<D, S> {
         DimsBox{ dims }
     }
 }
-impl<S: BaseScalarGeom, D: Dimensionality<S>> OffsetBox<S, D> {
+impl<D: Dimensionality<S>, S: BaseScalarGeom> OffsetBox<D, S> {
     #[inline]
-    pub fn new(origin: D::Point, dims: D::Vector) -> OffsetBox<S, D> {
+    pub fn new(origin: D::Point, dims: D::Vector) -> OffsetBox<D, S> {
         OffsetBox{ origin, dims }
     }
 }
-impl<S: BaseScalarGeom, D: Dimensionality<S>> BoundBox<S, D> {
+impl<D: Dimensionality<S>, S: BaseScalarGeom> BoundBox<D, S> {
     #[inline]
-    pub fn new(min: D::Point, max: D::Point) -> BoundBox<S, D> {
+    pub fn new(min: D::Point, max: D::Point) -> BoundBox<D, S> {
         BoundBox{ min, max }
     }
 }
@@ -366,7 +366,7 @@ inherent_impl_bounds!(D1; new1; (min_x), (max_x));
 inherent_impl_bounds!(D2; new2; (min_x, min_y), (max_x, max_y));
 inherent_impl_bounds!(D3; new3; (min_x, min_y, min_z), (max_x, max_y, max_z));
 
-impl<S, D> GeoBox for DimsBox<S, D>
+impl<D, S> GeoBox for DimsBox<D, S>
     where S: BaseScalarGeom,
           D: Dimensionality<S>,
           D::Vector: VectorSpace<Scalar=S>,
@@ -376,7 +376,7 @@ impl<S, D> GeoBox for DimsBox<S, D>
     type D = D;
 
     #[inline]
-    fn from_bounds(min: D::Point, max: D::Point) -> DimsBox<S, D> {
+    fn from_bounds(min: D::Point, max: D::Point) -> DimsBox<D, S> {
         DimsBox {
             dims: max - min
         }
@@ -385,30 +385,30 @@ impl<S, D> GeoBox for DimsBox<S, D>
     #[inline]
     fn min(&self) -> D::Point {D::Point::from_value(S::zero())}
     #[inline]
-    fn dims(&self) -> DimsBox<S, D> {DimsBox{dims: self.dims}}
+    fn dims(&self) -> DimsBox<D, S> {DimsBox{dims: self.dims}}
 }
 
-impl<S, D> Bounded for DimsBox<S, D>
+impl<D, S> Bounded for DimsBox<D, S>
     where S: BaseScalarGeom,
           D: Dimensionality<S>,
           D::Vector: Bounded
 {
     #[inline]
-    fn min_value() -> DimsBox<S, D> {
+    fn min_value() -> DimsBox<D, S> {
         DimsBox {
             dims: D::Vector::min_value()
         }
     }
 
     #[inline]
-    fn max_value() -> DimsBox<S, D> {
+    fn max_value() -> DimsBox<D, S> {
         DimsBox {
             dims: D::Vector::max_value()
         }
     }
 }
 
-impl<S, D> GeoBox for OffsetBox<S, D>
+impl<D, S> GeoBox for OffsetBox<D, S>
     where S: BaseScalarGeom,
           D: Dimensionality<S>,
           D::Vector: VectorSpace<Scalar=S>,
@@ -418,7 +418,7 @@ impl<S, D> GeoBox for OffsetBox<S, D>
     type D = D;
 
     #[inline]
-    fn from_bounds(min: D::Point, max: D::Point) -> OffsetBox<S, D> {
+    fn from_bounds(min: D::Point, max: D::Point) -> OffsetBox<D, S> {
         OffsetBox {
             origin: min,
             dims: max - min
@@ -428,10 +428,10 @@ impl<S, D> GeoBox for OffsetBox<S, D>
     #[inline]
     fn min(&self) -> D::Point {self.origin}
     #[inline]
-    fn dims(&self) -> DimsBox<S, D> {DimsBox::new(self.dims)}
+    fn dims(&self) -> DimsBox<D, S> {DimsBox::new(self.dims)}
 }
 
-impl<S, D> GeoBox for BoundBox<S, D>
+impl<D, S> GeoBox for BoundBox<D, S>
     where S: BaseScalarGeom,
           D: Dimensionality<S>,
           D::Vector: VectorSpace<Scalar=S>,
@@ -441,7 +441,7 @@ impl<S, D> GeoBox for BoundBox<S, D>
     type D = D;
 
     #[inline]
-    fn from_bounds(min: D::Point, max: D::Point) -> BoundBox<S, D> {
+    fn from_bounds(min: D::Point, max: D::Point) -> BoundBox<D, S> {
         BoundBox {
             min, max
         }
@@ -453,12 +453,12 @@ impl<S, D> GeoBox for BoundBox<S, D>
     fn max(&self) -> D::Point {self.max}
 }
 
-impl<S, D> From<DimsBox<S, D>> for OffsetBox<S, D>
+impl<D, S> From<DimsBox<D, S>> for OffsetBox<D, S>
     where S: BaseScalarGeom,
           D: Dimensionality<S>
 {
     #[inline]
-    fn from(rect: DimsBox<S, D>) -> OffsetBox<S, D> {
+    fn from(rect: DimsBox<D, S>) -> OffsetBox<D, S> {
         OffsetBox {
             origin: D::Point::from_value(S::zero()),
             dims: rect.dims
@@ -466,14 +466,14 @@ impl<S, D> From<DimsBox<S, D>> for OffsetBox<S, D>
     }
 }
 
-impl<S, D> From<DimsBox<S, D>> for BoundBox<S, D>
+impl<D, S> From<DimsBox<D, S>> for BoundBox<D, S>
     where S: BaseScalarGeom,
           D: Dimensionality<S>,
           D::Vector: VectorSpace<Scalar=S>,
           D::Point: EuclideanSpace<Diff=D::Vector>
 {
     #[inline]
-    fn from(rect: DimsBox<S, D>) -> BoundBox<S, D> {
+    fn from(rect: DimsBox<D, S>) -> BoundBox<D, S> {
         BoundBox {
             min: D::Point::from_value(S::zero()),
             max: D::Point::from_vec(rect.dims)
@@ -481,14 +481,14 @@ impl<S, D> From<DimsBox<S, D>> for BoundBox<S, D>
     }
 }
 
-impl<S, D> From<OffsetBox<S, D>> for BoundBox<S, D>
+impl<D, S> From<OffsetBox<D, S>> for BoundBox<D, S>
     where S: BaseScalarGeom,
           D: Dimensionality<S>,
           D::Vector: VectorSpace<Scalar=S>,
           D::Point: EuclideanSpace<Diff=D::Vector>
 {
     #[inline]
-    fn from(rect: OffsetBox<S, D>) -> BoundBox<S, D> {
+    fn from(rect: OffsetBox<D, S>) -> BoundBox<D, S> {
         BoundBox {
             min: rect.origin,
             max: D::Point::add(rect.origin, rect.dims)
@@ -496,14 +496,14 @@ impl<S, D> From<OffsetBox<S, D>> for BoundBox<S, D>
     }
 }
 
-impl<S, D> From<BoundBox<S, D>> for OffsetBox<S, D>
+impl<D, S> From<BoundBox<D, S>> for OffsetBox<D, S>
     where S: BaseScalarGeom,
           D: Dimensionality<S>,
           D::Vector: VectorSpace<Scalar=S>,
           D::Point: EuclideanSpace<Diff=D::Vector>
 {
     #[inline]
-    fn from(rect: BoundBox<S, D>) -> OffsetBox<S, D> {
+    fn from(rect: BoundBox<D, S>) -> OffsetBox<D, S> {
         OffsetBox {
             origin: rect.min,
             dims: D::Point::to_vec(rect.max) - D::Point::to_vec(rect.min)
@@ -511,7 +511,7 @@ impl<S, D> From<BoundBox<S, D>> for OffsetBox<S, D>
     }
 }
 
-impl<S, D> Add<D::Vector> for OffsetBox<S, D>
+impl<D, S> Add<D::Vector> for OffsetBox<D, S>
     where S: BaseScalarGeom,
           D: Dimensionality<S>,
           D::Vector: VectorSpace<Scalar=S>,
@@ -519,13 +519,13 @@ impl<S, D> Add<D::Vector> for OffsetBox<S, D>
 {
     type Output = Self;
     #[inline]
-    fn add(mut self, rhs: D::Vector) -> OffsetBox<S, D> {
+    fn add(mut self, rhs: D::Vector) -> OffsetBox<D, S> {
         self.origin = self.origin + rhs;
         self
     }
 }
 
-impl<S, D> Sub<D::Vector> for OffsetBox<S, D>
+impl<D, S> Sub<D::Vector> for OffsetBox<D, S>
     where S: BaseScalarGeom,
           D: Dimensionality<S>,
           D::Vector: VectorSpace<Scalar=S>,
@@ -533,13 +533,13 @@ impl<S, D> Sub<D::Vector> for OffsetBox<S, D>
 {
     type Output = Self;
     #[inline]
-    fn sub(mut self, rhs: D::Vector) -> OffsetBox<S, D> {
+    fn sub(mut self, rhs: D::Vector) -> OffsetBox<D, S> {
         self.origin = self.origin - rhs;
         self
     }
 }
 
-impl<S, D> Add<D::Vector> for BoundBox<S, D>
+impl<D, S> Add<D::Vector> for BoundBox<D, S>
     where S: BaseScalarGeom,
           D: Dimensionality<S>,
           D::Vector: VectorSpace<Scalar=S>,
@@ -547,14 +547,14 @@ impl<S, D> Add<D::Vector> for BoundBox<S, D>
 {
     type Output = Self;
     #[inline]
-    fn add(mut self, rhs: D::Vector) -> BoundBox<S, D> {
+    fn add(mut self, rhs: D::Vector) -> BoundBox<D, S> {
         self.min = self.min + rhs;
         self.max = self.max + rhs;
         self
     }
 }
 
-impl<S, D> Sub<D::Vector> for BoundBox<S, D>
+impl<D, S> Sub<D::Vector> for BoundBox<D, S>
     where S: BaseScalarGeom,
           D: Dimensionality<S>,
           D::Vector: VectorSpace<Scalar=S>,
@@ -562,7 +562,7 @@ impl<S, D> Sub<D::Vector> for BoundBox<S, D>
 {
     type Output = Self;
     #[inline]
-    fn sub(mut self, rhs: D::Vector) -> BoundBox<S, D> {
+    fn sub(mut self, rhs: D::Vector) -> BoundBox<D, S> {
         self.min = self.min - rhs;
         self.max = self.max - rhs;
         self
