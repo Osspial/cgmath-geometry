@@ -86,7 +86,7 @@ pub trait Intersect<RHS=Self> {
     fn intersect(self, rhs: RHS) -> Intersection<Self::Intersection>;
 }
 
-pub trait Dimensionality<S: BaseScalarGeom>: Sized {
+pub trait Dimensionality<S: BaseScalarGeom>: 'static + Sized {
     type Point: BasePointGeom<D=Self> + EuclideanSpace<Scalar=S>;
     type Vector: BaseVectorGeom<D=Self> + VectorSpace<Scalar=S>;
 }
