@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use {MulDiv, BaseScalarGeom, Intersect, Intersection, BasePointGeom, BaseVectorGeom, AbsDistance, Dimensionality, D1, D2, D3};
+use {MulDiv, BaseScalarGeom, Intersect, Intersection, AbsDistance, Dimensionality, D1, D2, D3};
 use cgmath::*;
-use num_traits::{Bounded, Float, Signed};
-use std::cmp::{Ordering, PartialEq, Eq};
-use std::ops::Mul;
+use num_traits::{Bounded, Float};
+use std::cmp::Ordering;
 use rect::{BoundBox, GeoBox};
 
 #[repr(C)]

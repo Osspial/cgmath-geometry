@@ -146,6 +146,75 @@ pub trait GeoBox
         }
 
         impl<S> TypeSwitch<S> for TS
+            where S: BaseScalarGeom
+        {
+            default_if_nightly!{
+                fn intersect_ts<D, R, L>(rect: &R, line: L) -> (Option<D::Point>, Option<D::Point>)
+                        where D: Dimensionality<S>,
+                            D::Vector: BaseVectorGeom<D=D>,
+                            D::Point: EuclideanSpace<Scalar=S, Diff=D::Vector>,
+                            R: GeoBox<Scalar=S, D=D> + ?Sized,
+                            L: Linear<Scalar=S, D=D>
+                {
+                    let zero = S::zero();
+                    let min = rect.min();
+                    let max = rect.max();
+
+                    let Segment{ start, end } = line.clip_to_scalar_bounds();
+                    let (mut enter, mut exit) = (start, end);
+                    let (mut enter_valid, mut exit_valid) = (false, false);
+                    let dir = line.dir();
+
+                    for i in 0..D::Point::len() {
+                        if enter[i] <= exit[i] {
+                            if enter[i] <= min[i] && min[i] <= exit[i] && dir[i] != zero {
+                                enter = enter + dir.mul_div(min[i] - enter[i], dir[i]);
+                                enter_valid = true;
+                            }
+
+                            if enter[i] <= max[i] && max[i] < exit[i] && dir[i] != zero {
+                                exit = exit - dir.mul_div(exit[i] - max[i], dir[i]);
+                                exit_valid = true;
+                            }
+                        } else {
+                            if exit[i] <= max[i] && max[i] <= enter[i] && dir[i] != zero {
+                                enter = enter - dir.mul_div(enter[i] - max[i], dir[i]);
+                                enter_valid = true;
+                            }
+
+                            if exit[i] < min[i] && min[i] <= enter[i] && dir[i] != zero {
+                                exit = exit + dir.mul_div(min[i] - exit[i], dir[i]);
+                                exit_valid = true;
+                            }
+                        };
+                    }
+
+                    for i in 0..D::Point::len() {
+                        if enter[i] < min[i] || max[i] < enter[i] {
+                            enter_valid = false;
+                        }
+                        if exit[i] < min[i] || max[i] < exit[i] {
+                            exit_valid = false;
+                        }
+                    }
+
+                    (
+                        match enter_valid {
+                            true => Some(enter),
+                            false => None
+                        },
+                        match exit_valid {
+                            true => Some(exit),
+                            false => None
+                        }
+                    )
+                }
+            }
+        }
+
+        // Optimized version for floating-point numbers
+        #[cfg(feature="nightly")]
+        impl<S> TypeSwitch<S> for TS
             where S: BaseFloat + BaseScalarGeom
         {
             fn intersect_ts<D, R, L>(rect: &R, line: L) -> (Option<D::Point>, Option<D::Point>)
@@ -198,71 +267,6 @@ pub trait GeoBox
                     };
                     (t_enter.map(|t| line_origin + dir * t), t_exit.map(|t| line_origin + dir * t))
                 }
-            }
-        }
-
-        impl<S> TypeSwitch<S> for TS
-            where S: BaseScalarGeom
-        {
-            default fn intersect_ts<D, R, L>(rect: &R, line: L) -> (Option<D::Point>, Option<D::Point>)
-                    where D: Dimensionality<S>,
-                          D::Vector: BaseVectorGeom<D=D>,
-                          D::Point: EuclideanSpace<Scalar=S, Diff=D::Vector>,
-                          R: GeoBox<Scalar=S, D=D> + ?Sized,
-                          L: Linear<Scalar=S, D=D>
-            {
-                let zero = S::zero();
-                let min = rect.min();
-                let max = rect.max();
-
-                let Segment{ start, end } = line.clip_to_scalar_bounds();
-                let (mut enter, mut exit) = (start, end);
-                let (mut enter_valid, mut exit_valid) = (false, false);
-                let dir = line.dir();
-
-                for i in 0..D::Point::len() {
-                    if enter[i] <= exit[i] {
-                        if enter[i] <= min[i] && min[i] <= exit[i] && dir[i] != zero {
-                            enter = enter + dir.mul_div(min[i] - enter[i], dir[i]);
-                            enter_valid = true;
-                        }
-
-                        if enter[i] <= max[i] && max[i] < exit[i] && dir[i] != zero {
-                            exit = exit - dir.mul_div(exit[i] - max[i], dir[i]);
-                            exit_valid = true;
-                        }
-                    } else {
-                        if exit[i] <= max[i] && max[i] <= enter[i] && dir[i] != zero {
-                            enter = enter - dir.mul_div(enter[i] - max[i], dir[i]);
-                            enter_valid = true;
-                        }
-
-                        if exit[i] < min[i] && min[i] <= enter[i] && dir[i] != zero {
-                            exit = exit + dir.mul_div(min[i] - exit[i], dir[i]);
-                            exit_valid = true;
-                        }
-                    };
-                }
-
-                for i in 0..D::Point::len() {
-                    if enter[i] < min[i] || max[i] < enter[i] {
-                        enter_valid = false;
-                    }
-                    if exit[i] < min[i] || max[i] < exit[i] {
-                        exit_valid = false;
-                    }
-                }
-
-                (
-                    match enter_valid {
-                        true => Some(enter),
-                        false => None
-                    },
-                    match exit_valid {
-                        true => Some(exit),
-                        false => None
-                    }
-                )
             }
         }
 

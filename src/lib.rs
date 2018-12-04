@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![feature(specialization)]
+#![cfg_attr(feature = "nightly", feature(specialization))]
 pub extern crate cgmath;
 extern crate num_traits;
 
@@ -23,6 +23,20 @@ extern crate serde;
 macro_rules! d {
     ($($t:tt)*) => {
         <Self::D as Dimensionality<Self::Scalar>>::$($t)*
+    };
+}
+
+#[cfg(feature="nightly")]
+macro_rules! default_if_nightly {
+    ($($t:tt)*) => {
+        default $($t)*
+    };
+}
+
+#[cfg(not(feature="nightly"))]
+macro_rules! default_if_nightly {
+    ($($t:tt)*) => {
+        $($t)*
     };
 }
 
@@ -143,26 +157,31 @@ macro_rules! impl_mul_div_array_default {
     ($($array:ident),*) => ($(
         impl<S: BaseNum + MulDiv> MulDiv for $array<S> {
             #[inline(always)]
-            fn mul_div(mut self, mul: $array<S>, div: $array<S>) -> $array<S> {
-                for i in 0..$array::<S>::len() {
-                    self[i] = self[i].mul_div(mul[i], div[i]);
+            default_if_nightly!{
+                fn mul_div(mut self, mul: $array<S>, div: $array<S>) -> $array<S> {
+                    for i in 0..$array::<S>::len() {
+                        self[i] = self[i].mul_div(mul[i], div[i]);
+                    }
+                    self
                 }
-                self
             }
         }
 
         impl<S: BaseNum + MulDiv> MulDiv<S> for $array<S> {
             #[inline(always)]
-            fn mul_div(mut self, mul: S, div: S) -> $array<S> {
-                for i in 0..$array::<S>::len() {
-                    self[i] = self[i].mul_div(mul, div);
+            default_if_nightly!{
+                fn mul_div(mut self, mul: S, div: S) -> $array<S> {
+                    for i in 0..$array::<S>::len() {
+                        self[i] = self[i].mul_div(mul, div);
+                    }
+                    self
                 }
-                self
             }
         }
     )*)
 }
 
+#[cfg(feature="nightly")]
 macro_rules! impl_mul_div_array_int {
     ($sm:ident => $bg:ident; $($array:ident{ $($field:ident),+ }),*) => {$(
         impl MulDiv for $array<$sm> {
@@ -206,7 +225,8 @@ macro_rules! impl_mul_div_int {
             }
         }
 
-        // impl_mul_div_array_int!($sm => $bg; Point1{x}, Point2{x, y}, Point3{x, y, z}, Vector1{x}, Vector2{x, y}, Vector3{x, y, z}, Vector4{x, y, z, w});
+        #[cfg(feature="nightly")]
+        impl_mul_div_array_int!($sm => $bg; Point1{x}, Point2{x, y}, Point3{x, y, z}, Vector1{x}, Vector2{x, y}, Vector3{x, y, z}, Vector4{x, y, z, w});
     )*}
 }
 
@@ -247,6 +267,7 @@ macro_rules! impl_abs_dist_int {
     )+};
 }
 
+#[cfg(feature="nightly")]
 macro_rules! impl_mul_div_array_float {
     ($float:ident; $($array:ident),*) => {$(
         impl MulDiv for $array<$float> {
@@ -301,7 +322,8 @@ macro_rules! impl_mul_div_float {
             }
         }
 
-        // impl_mul_div_array_float!($float; Point1, Point2, Point3, Vector1, Vector2, Vector3, Vector4);
+        #[cfg(feature = "nightly")]
+        impl_mul_div_array_float!($float; Point1, Point2, Point3, Vector1, Vector2, Vector3, Vector4);
     )*)
 }
 
