@@ -143,7 +143,7 @@ macro_rules! impl_mul_div_array_default {
     ($($array:ident),*) => ($(
         impl<S: BaseNum + MulDiv> MulDiv for $array<S> {
             #[inline(always)]
-            default fn mul_div(mut self, mul: $array<S>, div: $array<S>) -> $array<S> {
+            fn mul_div(mut self, mul: $array<S>, div: $array<S>) -> $array<S> {
                 for i in 0..$array::<S>::len() {
                     self[i] = self[i].mul_div(mul[i], div[i]);
                 }
@@ -153,7 +153,7 @@ macro_rules! impl_mul_div_array_default {
 
         impl<S: BaseNum + MulDiv> MulDiv<S> for $array<S> {
             #[inline(always)]
-            default fn mul_div(mut self, mul: S, div: S) -> $array<S> {
+            fn mul_div(mut self, mul: S, div: S) -> $array<S> {
                 for i in 0..$array::<S>::len() {
                     self[i] = self[i].mul_div(mul, div);
                 }
@@ -206,7 +206,7 @@ macro_rules! impl_mul_div_int {
             }
         }
 
-        impl_mul_div_array_int!($sm => $bg; Point1{x}, Point2{x, y}, Point3{x, y, z}, Vector1{x}, Vector2{x, y}, Vector3{x, y, z}, Vector4{x, y, z, w});
+        // impl_mul_div_array_int!($sm => $bg; Point1{x}, Point2{x, y}, Point3{x, y, z}, Vector1{x}, Vector2{x, y}, Vector3{x, y, z}, Vector4{x, y, z, w});
     )*}
 }
 
@@ -301,7 +301,7 @@ macro_rules! impl_mul_div_float {
             }
         }
 
-        impl_mul_div_array_float!($float; Point1, Point2, Point3, Vector1, Vector2, Vector3, Vector4);
+        // impl_mul_div_array_float!($float; Point1, Point2, Point3, Vector1, Vector2, Vector3, Vector4);
     )*)
 }
 
