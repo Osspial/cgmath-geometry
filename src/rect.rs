@@ -12,13 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use {MulDiv, BaseScalarGeom, BaseVectorGeom, Dimensionality, D1, D2, D3};
+pub mod iter;
+
+use {AbsDistance, MulDiv, BaseScalarGeom, BaseVectorGeom, Dimensionality, D1, D2, D3};
 use cgmath::*;
 
 use line::{Linear, Segment};
 
 use std::ops::{Add, Sub};
 use num_traits::{Bounded, NumCast, ToPrimitive};
+
+use self::iter::NearestPointsIter;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -43,7 +47,8 @@ pub struct BoundBox<D: Dimensionality<S>, S: BaseScalarGeom> {
     pub max: D::Point
 }
 
-pub trait GeoBox
+
+pub trait GeoBox: Sized
     where <Self::D as Dimensionality<Self::Scalar>>::Vector: VectorSpace<Scalar=Self::Scalar>,
           <Self::D as Dimensionality<Self::Scalar>>::Point: EuclideanSpace<Scalar=Self::Scalar, Diff=<Self::D as Dimensionality<Self::Scalar>>::Vector>
 {
@@ -271,6 +276,63 @@ pub trait GeoBox
         }
 
         TS::intersect_ts(self, line)
+    }
+
+    fn clamp(&self, mut point: d!(Point)) -> d!(Point) {
+        let min = self.min();
+        let max = self.max();
+        for i in 0..d!(Point::len()) {
+            point[i] = num_traits::clamp(point[i], min[i], max[i]);
+        }
+        point
+    }
+
+    fn nearest_points(self, point: d!(Point)) -> NearestPointsIter<Self> {
+        match self.contains(point) {
+            false => NearestPointsIter {
+                point: self.clamp(point),
+                b: self,
+                closest_sides: !0,
+            },
+            true => {
+                let min = self.min();
+                let max = self.max();
+
+                let mut closest_axis_dist = <Self::Scalar as AbsDistance>::Abs::max_value();
+
+                let mut closest_sides = 0;
+
+                for i in 0..d!(Point::len()) {
+                    let axis_dist_from_min = min[i].abs_distance(point[i]);
+                    let axis_dist_from_max = max[i].abs_distance(point[i]);
+                    let axis_dist = match axis_dist_from_min < axis_dist_from_max {
+                        true => axis_dist_from_min,
+                        false => axis_dist_from_max
+                    };
+
+                    if axis_dist < closest_axis_dist {
+                        closest_sides = 0;
+                        closest_axis_dist = axis_dist;
+                    }
+
+                    if axis_dist <= closest_axis_dist {
+                        if axis_dist_from_min == axis_dist_from_max {
+                            closest_sides |= 0b11 << (i * 2);
+                        } else if axis_dist_from_min < axis_dist_from_max {
+                            closest_sides |= 0b01 << (i * 2);
+                        } else if axis_dist_from_max < axis_dist_from_min {
+                            closest_sides |= 0b10 << (i * 2);
+                        }
+                    }
+                }
+
+                NearestPointsIter {
+                    b: self,
+                    point,
+                    closest_sides,
+                }
+            }
+        }
     }
 }
 
@@ -632,5 +694,76 @@ mod tests {
         assert_eq!(BoundBox::new2(20., 20., 40., 40.).intersect_rect(BoundBox::new2(0., 0., 10., 10.)), None);
         assert_eq!(BoundBox::new2(0., 0., 10., 10.).intersect_rect(BoundBox::new2(20., 20., 40., 40.)), None);
         assert_eq!(BoundBox::new2(10., 10., 20., 20.).intersect_rect(BoundBox::new2(5., 5., 15., 15.)), Some(BoundBox::new2(10., 10., 15., 15.)));
+    }
+
+    #[test]
+    fn contains() {
+        let rect = BoundBox::new2(30, 10, 50, 20);
+
+        // Test borders
+        assert!(rect.contains(Point2::new(30, 10)));
+        assert!(rect.contains(Point2::new(40, 10)));
+        assert!(rect.contains(Point2::new(50, 10)));
+        assert!(rect.contains(Point2::new(50, 15)));
+        assert!(rect.contains(Point2::new(50, 20)));
+        assert!(rect.contains(Point2::new(40, 20)));
+        assert!(rect.contains(Point2::new(30, 20)));
+        assert!(rect.contains(Point2::new(30, 15)));
+
+        assert!(rect.contains(Point2::new(40, 15)));
+
+        assert!(!rect.contains(Point2::new(25, 5)));
+        assert!(!rect.contains(Point2::new(40, 5)));
+        assert!(!rect.contains(Point2::new(55, 5)));
+        assert!(!rect.contains(Point2::new(55, 15)));
+        assert!(!rect.contains(Point2::new(55, 25)));
+        assert!(!rect.contains(Point2::new(40, 25)));
+        assert!(!rect.contains(Point2::new(25, 25)));
+        assert!(!rect.contains(Point2::new(25, 15)));
+    }
+
+    #[test]
+    fn test_nearest_points() {
+        let rect = BoundBox::new2(30, 10, 50, 20);
+
+        // Outside points
+        assert_eq!(
+            rect.nearest_points(Point2::new(0, 0)).collect::<Vec<_>>(),
+            &[Point2::new(30, 10)]
+        );
+        assert_eq!(
+            rect.nearest_points(Point2::new(0, 20)).collect::<Vec<_>>(),
+            &[Point2::new(30, 20)]
+        );
+
+        // Inside points
+        assert_eq!(
+            rect.nearest_points(Point2::new(33, 15)).collect::<Vec<_>>(),
+            &[Point2::new(30, 15)]
+        );
+        assert_eq!(
+            rect.nearest_points(Point2::new(47, 15)).collect::<Vec<_>>(),
+            &[Point2::new(50, 15)]
+        );
+        assert_eq!(
+            rect.nearest_points(Point2::new(40, 16)).collect::<Vec<_>>(),
+            &[Point2::new(40, 20)]
+        );
+        assert_eq!(
+            rect.nearest_points(Point2::new(40, 14)).collect::<Vec<_>>(),
+            &[Point2::new(40, 10)]
+        );
+        assert_eq!(
+            rect.nearest_points(Point2::new(35, 15)).collect::<Vec<_>>(),
+            &[Point2::new(30, 15), Point2::new(35, 10), Point2::new(35, 20)]
+        );
+        assert_eq!(
+            rect.nearest_points(Point2::new(40, 15)).collect::<Vec<_>>(),
+            &[Point2::new(40, 10), Point2::new(40, 20)]
+        );
+        assert_eq!(
+            rect.nearest_points(Point2::new(45, 15)).collect::<Vec<_>>(),
+            &[Point2::new(50, 15), Point2::new(45, 10), Point2::new(45, 20)]
+        );
     }
 }
