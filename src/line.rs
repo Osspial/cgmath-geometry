@@ -80,6 +80,8 @@ pub trait Linear
     fn start(&self) -> Option<d!(Point)>;
     fn end(&self) -> Option<d!(Point)>;
 
+    fn interp<F: Float>(&self, t: F) {}
+
     fn clip_to_scalar_bounds(&self) -> Segment<Self::D, Self::Scalar> {
         let origin = self.origin();
         let dir = self.dir();
@@ -263,7 +265,8 @@ impl<L, R> Intersect<R> for L
     fn intersect(self, rhs: R) -> Intersection<Point2<L::Scalar>> {
         let (lo, ro) = (self.origin(), rhs.origin());
         let (ld, rd) = (self.dir(), rhs.dir());
-        let slope_diff = rd.y*ld.x - rd.x*ld.y;
+
+        let slope_diff = ld.x * rd.y - ld.y * rd.x;
 
         if slope_diff == L::Scalar::zero() {
             return if (ro.y-lo.y) * (ro.x-lo.x) == ld.x * ld.y || ro == lo {
@@ -272,8 +275,12 @@ impl<L, R> Intersect<R> for L
                 Intersection::None
             };
         }
-        let t = (rd.x*(lo.y-ro.y) - rd.y*(lo.x-ro.x))/slope_diff;
-        let intersection = lo + ld * t;
+        // This could be optimized to computing `t` then lerping between lo and (lo + ld) for
+        // floats, but that approach breaks down for integers.
+        let intersection = Point2::new(
+            (ro.x * ld.x * rd.y - rd.x * (lo.x * ld.y - ld.x * (lo.y - ro.y))) / slope_diff,
+            (rd.y * (lo.y * ld.x - ld.y * (lo.x - ro.x)) - ro.y * ld.y * rd.x) / slope_diff,
+        );
 
         match bounding_box(self).intersect_rect(bounding_box(rhs)).map(|r| r.contains(intersection)) {
             Some(true) => Intersection::Some(intersection),
@@ -325,6 +332,34 @@ fn bounding_box<L: Linear>(line: L) -> BoundBox<L::D, L::Scalar>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn line_intersect() {
+        let horizontal = Segment::new2(-1.0, 0.0, 1.0, 0.0);
+        let vertical = Segment::new2(0.0, -1.0, 0.0, 1.0);
+        assert_eq!(Intersection::Some(Point2::new(0.0, 0.0)), horizontal.intersect(vertical));
+
+        let horizontal = Segment::new2(-1.0, 0.0, 1.0, 0.0);
+        let vertical = Segment::new2(0.5, -1.0, 0.5, 1.0);
+        assert_eq!(Intersection::Some(Point2::new(0.5, 0.0)), horizontal.intersect(vertical));
+
+        let diag0 = Segment::new2(-1.0, -1.0, 1.0, 1.0);
+        let diag1 = Segment::new2(-1.0, 1.0, 1.0, -1.0);
+        assert_eq!(Intersection::Some(Point2::new(0.0, 0.0)), diag0.intersect(diag1));
+
+
+        let horizontal = Segment::new2(-1, 0, 1, 0);
+        let vertical = Segment::new2(0, -1, 0, 1);
+        assert_eq!(Intersection::Some(Point2::new(0, 0)), horizontal.intersect(vertical));
+
+        let diag0 = Segment::new2(-1, -1, 1, 1);
+        let diag1 = Segment::new2(-1, 1, 1, -1);
+        assert_eq!(Intersection::Some(Point2::new(0, 0)), diag0.intersect(diag1));
+
+        let diag0 = Segment::new2(-1, -1, 2, 1);
+        let diag1 = Segment::new2(-1, 1, 2, -1);
+        assert_eq!(Intersection::Some(Point2::new(0, 0)), diag0.intersect(diag1));
+    }
 
     #[test]
     fn general_bounding_box() {
