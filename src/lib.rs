@@ -379,6 +379,6 @@ mod test {
         assert_eq!(128, u32::lerp(0, 128, 1f32));
 
         assert_eq!(0, i32::lerp(i32::min_value(), i32::max_value(), 0.5f32));
-        assert_eq!(u32::max_value() / 2, u32::lerp(0, u32::max_value(), 0.5f32));
+        assert_eq!(u32::max_value() / 2, u32::lerp(0, u32::max_value(), 0.5f64));
     }
 }

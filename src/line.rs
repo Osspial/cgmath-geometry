@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use {MulDiv, BaseScalarGeom, Intersect, Intersection, AbsDistance, Dimensionality, D1, D2, D3};
+use {LerpFactor, MulDiv, BaseScalarGeom, Intersect, Intersection, AbsDistance, Dimensionality, D1, D2, D3};
 use cgmath::*;
 use num_traits::{Bounded, Float};
 use std::cmp::Ordering;
@@ -80,7 +80,22 @@ pub trait Linear
     fn start(&self) -> Option<d!(Point)>;
     fn end(&self) -> Option<d!(Point)>;
 
-    fn interp<F: Float>(&self, t: F) {}
+    fn interp_bounds<T>(&self) -> (Option<T>, Option<T>);
+
+    fn interp<T: LerpFactor>(&self, t: T) -> Option<d!(Point)> {
+        let (start_opt, end_opt) = self.interp_bounds();
+        if start_opt.map(|s| s > t).unwrap_or(false) && end_opt.map(|e| t > e).unwrap_or(false) {
+            return None;
+        }
+
+        let (start, end) = (self.start(), self.end());
+        let mut interp = self.start();
+        for i in 0..d!(Point::len()) {
+            interp[i] = start[i].lerp(end[i], t);
+        }
+
+        Some(interp)
+    }
 
     fn clip_to_scalar_bounds(&self) -> Segment<Self::D, Self::Scalar> {
         let origin = self.origin();
