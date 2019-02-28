@@ -47,6 +47,20 @@ pub mod rect;
 
 use cgmath::*;
 
+pub trait Lerp: BaseScalarGeom {
+    fn lerp<T: LerpFactor>(self, other: Self, t: T) -> Self {
+        println!();
+        Self::from(
+            T::from(other).unwrap() * t +
+            T::from(self).unwrap() * (T::one() - t)
+        ).unwrap()
+    }
+}
+impl<S: BaseScalarGeom> Lerp for S {}
+
+pub trait LerpFactor: BaseScalarGeom + BaseFloat {}
+impl<F: BaseScalarGeom + BaseFloat> LerpFactor for F {}
+
 pub trait MulDiv<Rhs = Self> {
     fn mul_div(self, mul: Rhs, div: Rhs) -> Self;
 }
@@ -353,3 +367,18 @@ impl_mul_div_float! {
 }
 
 impl_mul_div_array_default!(Point1, Point2, Point3, Vector1, Vector2, Vector3, Vector4);
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn lerp() {
+        assert_eq!(0, u32::lerp(0, 128, 0.0f32));
+        assert_eq!(64, u32::lerp(0, 128, 0.5f32));
+        assert_eq!(128, u32::lerp(0, 128, 1f32));
+
+        assert_eq!(0, i32::lerp(i32::min_value(), i32::max_value(), 0.5f32));
+        assert_eq!(u32::max_value() / 2, u32::lerp(0, u32::max_value(), 0.5f32));
+    }
+}

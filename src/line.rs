@@ -263,6 +263,8 @@ impl<L, R> Intersect<R> for L
 {
     type Intersection = Point2<L::Scalar>;
     fn intersect(self, rhs: R) -> Intersection<Point2<L::Scalar>> {
+        // To see how this works, check out https://www.desmos.com/calculator/oipyx0c0me
+
         let (lo, ro) = (self.origin(), rhs.origin());
         let (ld, rd) = (self.dir(), rhs.dir());
 
