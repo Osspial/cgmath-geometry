@@ -49,7 +49,6 @@ use cgmath::*;
 
 pub trait Lerp: BaseScalarGeom {
     fn lerp<T: LerpFactor>(self, other: Self, t: T) -> Self {
-        println!();
         Self::from(
             T::from(other).unwrap() * t +
             T::from(self).unwrap() * (T::one() - t)

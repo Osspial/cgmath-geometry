@@ -80,8 +80,6 @@ pub trait Linear
     fn start(&self) -> Option<d!(Point)>;
     fn end(&self) -> Option<d!(Point)>;
 
-    fn interp<F: Float>(&self, t: F) {}
-
     fn clip_to_scalar_bounds(&self) -> Segment<Self::D, Self::Scalar> {
         let origin = self.origin();
         let dir = self.dir();

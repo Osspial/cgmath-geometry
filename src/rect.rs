@@ -19,6 +19,7 @@ use cgmath::*;
 
 use line::{Linear, Segment};
 
+use std::fmt;
 use std::ops::{Add, Sub};
 use num_traits::{Bounded, NumCast, ToPrimitive};
 
@@ -765,5 +766,32 @@ mod tests {
             rect.nearest_points(Point2::new(45, 15)).collect::<Vec<_>>(),
             &[Point2::new(50, 15), Point2::new(45, 10), Point2::new(45, 20)]
         );
+    }
+}
+
+impl<S> fmt::Display for DimsBox<D1, S>
+    where D1: Dimensionality<S>,
+          S: fmt::Display + BaseScalarGeom
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "({})", self.width())
+    }
+}
+
+impl<S> fmt::Display for DimsBox<D2, S>
+    where D1: Dimensionality<S>,
+          S: fmt::Display + BaseScalarGeom
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "({}x{})", self.width(), self.height())
+    }
+}
+
+impl<S> fmt::Display for DimsBox<D3, S>
+    where D1: Dimensionality<S>,
+          S: fmt::Display + BaseScalarGeom
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "({}x{}x{})", self.width(), self.height(), self.depth())
     }
 }
