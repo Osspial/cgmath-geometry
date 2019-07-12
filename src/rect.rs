@@ -77,21 +77,21 @@ pub trait GeoBox: Sized
     fn width(&self) -> Self::Scalar {
         match d!(Point::len()) >= 1 {
             true => self.dims().dims[0],
-            false => Self::Scalar::zero()
+            false => Self::Scalar::one()
         }
     }
     #[inline]
     fn height(&self) -> Self::Scalar {
         match d!(Point::len()) >= 2 {
             true => self.dims().dims[1],
-            false => Self::Scalar::zero()
+            false => Self::Scalar::one()
         }
     }
     #[inline]
     fn depth(&self) -> Self::Scalar {
         match d!(Point::len()) >= 3 {
             true => self.dims().dims[2],
-            false => Self::Scalar::zero()
+            false => Self::Scalar::one()
         }
     }
 
