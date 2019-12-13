@@ -282,7 +282,7 @@ impl<L, R> Intersect<R> for L
             (rd.y * (lo.y * ld.x - ld.y * (lo.x - ro.x)) - ro.y * ld.y * rd.x) / slope_diff,
         );
 
-        match bounding_box(self).intersect_rect(bounding_box(rhs)).map(|r| r.contains(intersection)) {
+        match bounding_box(self).intersect_rect(bounding_box(rhs)).either().map(|r| r.contains(intersection)) {
             Some(true) => Intersection::Some(intersection),
             _ => Intersection::None
         }

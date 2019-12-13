@@ -48,6 +48,37 @@ pub struct BoundBox<D: Dimensionality<S>, S: BaseScalarGeom> {
     pub max: D::Point
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature="serde", derive(Deserialize, Serialize))]
+pub enum Intersection<I> {
+    Overlaps(I),
+    Touches(I),
+    None,
+}
+
+impl<I> Intersection<I> {
+    pub fn overlaps(self) -> Option<I> {
+        match self {
+            Self::Overlaps(i) => Some(i),
+            _ => None,
+        }
+    }
+
+    pub fn touches(self) -> Option<I> {
+        match self {
+            Self::Touches(i) => Some(i),
+            _ => None,
+        }
+    }
+
+    pub fn either(self) -> Option<I> {
+        match self {
+            Self::Touches(i) => Some(i),
+            Self::Overlaps(i) => Some(i),
+            _ => None,
+        }
+    }
+}
 
 pub trait GeoBox: Sized
     where <Self::D as Dimensionality<Self::Scalar>>::Vector: VectorSpace<Scalar=Self::Scalar>,
@@ -115,24 +146,31 @@ pub trait GeoBox: Sized
         contains
     }
 
-    fn intersect_rect(&self, other: Self) -> Option<Self>
+    fn intersect_rect(&self, other: Self) -> Intersection<Self>
         where Self: Sized
     {
         let (s_min, s_max) = (self.min(), self.max());
         let (o_min, o_max) = (other.min(), other.max());
 
         let (mut min, mut max) = (s_min, s_max);
+        let mut touches = false;
 
         for i in 0..d!(Point::len()) {
             min[i] = ::cmp_max(s_min[i], o_min[i]);
             max[i] = ::cmp_min(s_max[i], o_max[i]);
 
-            if max[i] < min[i] {
-                return None;
+            if max[i] == min[i] {
+                touches = true
+            } if max[i] < min[i] {
+                return Intersection::None;
             }
         }
 
-        Some(Self::from_bounds(min, max))
+        let rect = Self::from_bounds(min, max);
+        match touches {
+            true => Intersection::Touches(rect),
+            false => Intersection::Overlaps(rect),
+        }
     }
 
     fn intersect_line<L>(&self, line: L) -> (Option<d!(Point)>, Option<d!(Point)>)
@@ -692,9 +730,10 @@ mod tests {
 
     #[test]
     fn test_intersect() {
-        assert_eq!(BoundBox::new2(20., 20., 40., 40.).intersect_rect(BoundBox::new2(0., 0., 10., 10.)), None);
-        assert_eq!(BoundBox::new2(0., 0., 10., 10.).intersect_rect(BoundBox::new2(20., 20., 40., 40.)), None);
-        assert_eq!(BoundBox::new2(10., 10., 20., 20.).intersect_rect(BoundBox::new2(5., 5., 15., 15.)), Some(BoundBox::new2(10., 10., 15., 15.)));
+        assert_eq!(BoundBox::new2(20., 20., 40., 40.).intersect_rect(BoundBox::new2(0., 0., 10., 10.)), Intersection::None);
+        assert_eq!(BoundBox::new2(0., 0., 10., 10.).intersect_rect(BoundBox::new2(20., 20., 40., 40.)), Intersection::None);
+        assert_eq!(BoundBox::new2(10., 10., 20., 20.).intersect_rect(BoundBox::new2(5., 5., 15., 15.)), Intersection::Overlaps(BoundBox::new2(10., 10., 15., 15.)));
+        assert_eq!(BoundBox::new2(10., 10., 20., 20.).intersect_rect(BoundBox::new2(5., 5., 10., 15.)), Intersection::Touches(BoundBox::new2(10., 10., 10., 15.)));
     }
 
     #[test]
