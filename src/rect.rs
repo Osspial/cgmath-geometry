@@ -146,6 +146,21 @@ pub trait GeoBox: Sized
         contains
     }
 
+    #[inline]
+    fn contains_exclusive(&self, point: d!(Point)) -> bool {
+        let min = self.min();
+        let max = self.max();
+
+        let mut contains = true;
+        for i in 0..d!(Point::len()) {
+            contains = contains &&
+                min[i] < point[i] &&
+                point[i] < max[i];
+        }
+
+        contains
+    }
+
     fn intersect_rect(&self, other: Self) -> Intersection<Self>
         where Self: Sized
     {
@@ -742,6 +757,7 @@ mod tests {
 
         // Test borders
         assert!(rect.contains(Point2::new(30, 10)));
+        assert!(!rect.contains_exclusive(Point2::new(30, 10)));
         assert!(rect.contains(Point2::new(40, 10)));
         assert!(rect.contains(Point2::new(50, 10)));
         assert!(rect.contains(Point2::new(50, 15)));
