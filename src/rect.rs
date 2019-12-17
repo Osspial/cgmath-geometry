@@ -332,92 +332,6 @@ pub trait GeoBox: Sized
         TS::intersect_ts(self, line)
     }
 
-    fn intersect_line_exclusive<L>(&self, line: L) -> (Option<d!(Point)>, Option<d!(Point)>)
-        where L: Linear<Scalar=Self::Scalar, D=Self::D>,
-              Self::Scalar: Bounded
-    {
-        struct TS;
-        trait TypeSwitch<S>
-            where S: BaseScalarGeom
-        {
-            fn intersect_ts<D, R, L>(rect: &R, line: L) -> (Option<D::Point>, Option<D::Point>)
-                    where D: Dimensionality<S>,
-                          D::Vector: BaseVectorGeom<D=D>,// VectorSpace<Scalar=S>,
-                          D::Point: EuclideanSpace<Scalar=S, Diff=D::Vector>,
-                          R: GeoBox<Scalar=S, D=D> + ?Sized,
-                          L: Linear<Scalar=S, D=D>;
-        }
-
-        impl<S> TypeSwitch<S> for TS
-            where S: BaseScalarGeom
-        {
-            default_if_nightly!{
-                fn intersect_ts<D, R, L>(rect: &R, line: L) -> (Option<D::Point>, Option<D::Point>)
-                        where D: Dimensionality<S>,
-                            D::Vector: BaseVectorGeom<D=D>,
-                            D::Point: EuclideanSpace<Scalar=S, Diff=D::Vector>,
-                            R: GeoBox<Scalar=S, D=D> + ?Sized,
-                            L: Linear<Scalar=S, D=D>
-                {
-                    let zero = S::zero();
-                    let min = rect.min();
-                    let max = rect.max();
-
-                    let Segment{ start, end } = line.clip_to_scalar_bounds();
-                    let (mut enter, mut exit) = (start, end);
-                    let (mut enter_valid, mut exit_valid) = (false, false);
-                    let dir = line.dir();
-
-                    for i in 0..D::Point::len() {
-                        if enter[i] < exit[i] {
-                            if enter[i] < min[i] && min[i] < exit[i] && dir[i] != zero {
-                                enter = enter + dir.mul_div(min[i] - enter[i], dir[i]);
-                                enter_valid = true;
-                            }
-
-                            if enter[i] < max[i] && max[i] < exit[i] && dir[i] != zero {
-                                exit = exit - dir.mul_div(exit[i] - max[i], dir[i]);
-                                exit_valid = true;
-                            }
-                        } else {
-                            if exit[i] < max[i] && max[i] < enter[i] && dir[i] != zero {
-                                enter = enter - dir.mul_div(enter[i] - max[i], dir[i]);
-                                enter_valid = true;
-                            }
-
-                            if exit[i] < min[i] && min[i] < enter[i] && dir[i] != zero {
-                                exit = exit + dir.mul_div(min[i] - exit[i], dir[i]);
-                                exit_valid = true;
-                            }
-                        };
-                    }
-
-                    for i in 0..D::Point::len() {
-                        if enter[i] < min[i] || max[i] < enter[i] {
-                            enter_valid = false;
-                        }
-                        if exit[i] < min[i] || max[i] < exit[i] {
-                            exit_valid = false;
-                        }
-                    }
-
-                    (
-                        match enter_valid {
-                            true => Some(enter),
-                            false => None
-                        },
-                        match exit_valid {
-                            true => Some(exit),
-                            false => None
-                        }
-                    )
-                }
-            }
-        }
-
-        TS::intersect_ts(self, line)
-    }
-
     fn clamp(&self, mut point: d!(Point)) -> d!(Point) {
         let min = self.min();
         let max = self.max();
@@ -781,27 +695,6 @@ mod tests {
     use line::Segment;
 
     #[test]
-    fn exclusive_line_touch_edge_exit() {
-        let rect = BoundBox::new2(20, 20, 30, 40);
-        let segment = Segment::new2(25, 25, 20, 25);
-        assert_eq!((None, None), rect.intersect_line_exclusive(segment));
-    }
-
-    #[test]
-    fn exclusive_line_touch_edge_outer_exit() {
-        let rect = BoundBox::new2(20, 20, 30, 40);
-        let segment = Segment::new2(25, 15, 25, 20);
-        assert_eq!((None, None), rect.intersect_line_exclusive(segment));
-    }
-
-    #[test]
-    fn exclusive_line_touch_edge_enter() {
-        let rect = BoundBox::new2(20, 20, 30, 40);
-        let segment = Segment::new2(25, 0, 27, 20);
-        assert_eq!((None, None), rect.intersect_line_exclusive(segment));
-    }
-
-    #[test]
     fn line_touch_edge_exit() {
         let rect = BoundBox::new2(20, 20, 30, 40);
         let segment = Segment::new2(25, 25, 20, 25);
@@ -816,6 +709,13 @@ mod tests {
     }
 
     #[test]
+    fn line_touch_edge_enter() {
+        let rect = BoundBox::new2(20, 20, 30, 40);
+        let segment = Segment::new2(25, 0, 27, 20);
+        assert_eq!((Some(Point2::new(27, 20)), None), rect.intersect_line(segment));
+    }
+
+    #[test]
     fn line_exit_single_move_lt() {
         let rect = BoundBox::new2(20, 20, 30, 40);
         let segment = Segment::new2(20, 25, 19, 25);
@@ -827,13 +727,6 @@ mod tests {
         let rect = BoundBox::new2(20, 20, 30, 40);
         let segment = Segment::new2(30, 25, 31, 25);
         assert_eq!((None, Some(Point2::new(30, 25))), rect.intersect_line(segment));
-    }
-
-    #[test]
-    fn line_touch_edge_enter() {
-        let rect = BoundBox::new2(20, 20, 30, 40);
-        let segment = Segment::new2(25, 0, 27, 20);
-        assert_eq!((Some(Point2::new(27, 20)), None), rect.intersect_line(segment));
     }
 
     #[test]
